@@ -1,3 +1,5 @@
+mod ast;
+mod parser;
 mod scanner;
 mod token;
 mod vitus;
@@ -8,6 +10,7 @@ use std::io;
 use std::io::Write;
 use std::println;
 
+use crate::ast::AST;
 use crate::scanner::Scanner;
 use crate::vitus::Vitus;
 
@@ -19,7 +22,7 @@ fn main() {
             run_file(&file);
         }
     } else {
-        run_prompt()
+        run_prompt();
     }
 }
 
@@ -34,7 +37,7 @@ fn run_prompt() {
     println!("Vitus {}", env!("CARGO_PKG_VERSION"));
 
     loop {
-        print!("> ");
+        print!(">>> ");
         io::stdout().flush().unwrap();
         io::stdin().read_line(&mut line).unwrap();
         if line.len() > 0 {
@@ -49,7 +52,9 @@ fn run(program: &str) {
     let keywords = Vitus::keywords();
     let mut scanner = Scanner::new(program.to_owned(), &keywords);
 
-    scanner.scan_tokens();
+    let tokens = scanner.scan_tokens();
 
-    println!("{:#?}", scanner.tokens);
+    let ast = AST::new(&tokens);
+
+    println!("{}", ast);
 }

@@ -1,8 +1,6 @@
-use std::todo;
-
 use crate::{
     ast::{BinaryExpression, Expression, GroupingExpression, LiteralExpression, UnaryExpression},
-    token::{self, Token, TokenData},
+    token::{Token, TokenData},
     vitus::Vitus,
 };
 
