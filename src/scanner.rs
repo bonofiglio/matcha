@@ -11,7 +11,7 @@ pub struct Scanner<'a> {
     current: usize,
     start: usize,
     line: u64,
-    pub tokens: Vec<Token>,
+    tokens: Vec<Token>,
 }
 
 impl Scanner<'_> {
@@ -26,7 +26,7 @@ impl Scanner<'_> {
         };
     }
 
-    pub fn scan_tokens(&mut self) -> &Vec<Token> {
+    pub fn scan_tokens(&mut self) -> Vec<Token> {
         while !self.eof() {
             self.start = self.current;
             self.scan_token();
@@ -34,12 +34,15 @@ impl Scanner<'_> {
 
         self.add_token(TokenData::Eof);
 
+        let result = self.tokens.clone();
+
         // Restart the scanner to its original state
         self.start = 0;
         self.current = 0;
         self.line = 0;
+        self.tokens = vec![];
 
-        return &self.tokens;
+        return result;
     }
 
     // Helpers:

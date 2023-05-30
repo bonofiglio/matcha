@@ -50,11 +50,11 @@ pub enum TokenData {
     Eof,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
-    token_data: TokenData,
-    lexeme: String,
-    line: u64,
+    pub token_data: TokenData,
+    pub lexeme: String,
+    pub line: u64,
 }
 
 impl Token {
