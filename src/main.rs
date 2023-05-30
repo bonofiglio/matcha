@@ -22,7 +22,7 @@ fn main() {
             run_file(&file);
         }
     } else {
-        run_prompt();
+        repl();
     }
 }
 
@@ -32,7 +32,7 @@ fn run_file(path: &str) {
     run(&contents)
 }
 
-fn run_prompt() {
+fn repl() {
     let mut line = String::new();
     println!("Vitus {}", env!("CARGO_PKG_VERSION"));
 
