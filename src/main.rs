@@ -50,9 +50,8 @@ fn repl() {
 
 fn run(program: &str) {
     let keywords = Vitus::keywords();
-    let mut scanner = Scanner::new(program.to_owned(), &keywords);
 
-    let tokens = scanner.scan_tokens();
+    let tokens = Scanner::scan(program, &keywords);
 
     let ast = AST::new(&tokens);
 

@@ -5,140 +5,295 @@ use crate::{
     vitus::Vitus,
 };
 
-pub struct Scanner<'a> {
-    source: String,
-    keywords: &'a HashMap<String, TokenData>,
-    current: usize,
-    start: usize,
-    line: u64,
-    tokens: Vec<Token>,
-}
+pub struct Scanner {}
 
-impl Scanner<'_> {
-    pub fn new(source: String, keywords: &HashMap<String, TokenData>) -> Scanner {
-        return Scanner {
-            source,
-            keywords,
-            current: 0,
-            start: 0,
-            line: 0,
-            tokens: vec![],
-        };
-    }
+impl Scanner {
+    pub fn scan(source: &str, keywords: &HashMap<String, TokenData>) -> Vec<Token> {
+        let mut current_index: usize = 0;
+        let mut start_index: usize = 0;
+        let mut line: u64 = 0;
+        let mut tokens = Vec::<Token>::new();
 
-    pub fn scan_tokens(&mut self) -> Vec<Token> {
-        while !self.eof() {
-            self.start = self.current;
-            self.scan_token();
+        while !Scanner::eof(source, current_index) {
+            start_index = current_index;
+            Scanner::scan_token(
+                source,
+                start_index,
+                &mut current_index,
+                &mut line,
+                &mut tokens,
+                keywords,
+            );
         }
 
-        self.add_token(TokenData::Eof);
+        Scanner::add_token(
+            source,
+            start_index,
+            current_index,
+            line,
+            &mut tokens,
+            TokenData::Eof,
+        );
 
-        let result = self.tokens.clone();
-
-        // Restart the scanner to its original state
-        self.start = 0;
-        self.current = 0;
-        self.line = 0;
-        self.tokens = vec![];
-
-        return result;
+        return tokens;
     }
 
     // Helpers:
 
-    fn eof(&self) -> bool {
-        return self.source.len() <= self.current;
+    fn eof(source: &str, current: usize) -> bool {
+        return source.len() <= current;
     }
 
-    pub fn lookahead(&self) -> char {
-        if self.eof() {
+    fn lookahead(source: &str, current_index: usize) -> char {
+        if Scanner::eof(source, current_index) {
             return '\0';
         }
 
-        return self.source.chars().nth(self.current).unwrap();
+        return source.chars().nth(current_index).unwrap();
     }
 
-    fn add_token(&mut self, token_data: TokenData) {
-        let lexeme: String = self
-            .source
+    fn add_token(
+        source: &str,
+        start_index: usize,
+        current_index: usize,
+        line: u64,
+        tokens: &mut Vec<Token>,
+        token_data: TokenData,
+    ) {
+        let lexeme: String = source
             .chars()
-            .skip(self.start)
-            .take(self.current - self.start)
+            .skip(start_index)
+            .take(current_index - start_index)
             .collect();
 
-        self.tokens.push(Token::new(token_data, lexeme, self.line));
+        tokens.push(Token::new(token_data, lexeme, line));
     }
 
-    fn scan_token(&mut self) {
-        let c = self.advance();
+    fn scan_token(
+        source: &str,
+        start_index: usize,
+        current_index: &mut usize,
+        line: &mut u64,
+        tokens: &mut Vec<Token>,
+        keywords: &HashMap<String, TokenData>,
+    ) {
+        let c = Scanner::advance(source, current_index);
 
         match c {
             // Single characters
-            '(' => self.add_token(TokenData::LeftParen),
-            ')' => self.add_token(TokenData::RightParen),
-            '{' => self.add_token(TokenData::LeftBrace),
-            '}' => self.add_token(TokenData::RightBrace),
-            ',' => self.add_token(TokenData::Comma),
-            '.' => self.add_token(TokenData::Dot),
-            '-' => self.add_token(TokenData::Minus),
-            '+' => self.add_token(TokenData::Plus),
-            ';' => self.add_token(TokenData::SemiColon),
-            '*' => self.add_token(TokenData::Star),
+            '(' => Scanner::add_token(
+                source,
+                start_index,
+                *current_index,
+                *line,
+                tokens,
+                TokenData::LeftParen,
+            ),
+            ')' => Scanner::add_token(
+                source,
+                start_index,
+                *current_index,
+                *line,
+                tokens,
+                TokenData::RightParen,
+            ),
+            '{' => Scanner::add_token(
+                source,
+                start_index,
+                *current_index,
+                *line,
+                tokens,
+                TokenData::LeftBrace,
+            ),
+            '}' => Scanner::add_token(
+                source,
+                start_index,
+                *current_index,
+                *line,
+                tokens,
+                TokenData::RightBrace,
+            ),
+            ',' => Scanner::add_token(
+                source,
+                start_index,
+                *current_index,
+                *line,
+                tokens,
+                TokenData::Comma,
+            ),
+            '.' => Scanner::add_token(
+                source,
+                start_index,
+                *current_index,
+                *line,
+                tokens,
+                TokenData::Dot,
+            ),
+            '-' => Scanner::add_token(
+                source,
+                start_index,
+                *current_index,
+                *line,
+                tokens,
+                TokenData::Minus,
+            ),
+            '+' => Scanner::add_token(
+                source,
+                start_index,
+                *current_index,
+                *line,
+                tokens,
+                TokenData::Plus,
+            ),
+            ';' => Scanner::add_token(
+                source,
+                start_index,
+                *current_index,
+                *line,
+                tokens,
+                TokenData::SemiColon,
+            ),
+            '*' => Scanner::add_token(
+                source,
+                start_index,
+                *current_index,
+                *line,
+                tokens,
+                TokenData::Star,
+            ),
 
             // Operators
             '&' => {
-                if self.matches_next('&') {
-                    self.add_token(TokenData::And)
+                if Scanner::matches_next(source, current_index, '&') {
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        tokens,
+                        TokenData::And,
+                    )
                 } else {
-                    Vitus::error(self.line, &format!("Unexpected character: {}", c))
+                    Vitus::error(*line, &format!("Unexpected character: {}", c))
                 }
             }
             '|' => {
-                if self.matches_next('|') {
-                    self.add_token(TokenData::Or)
+                if Scanner::matches_next(source, current_index, '|') {
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        tokens,
+                        TokenData::Or,
+                    )
                 } else {
-                    Vitus::error(self.line, &format!("Unexpected character: {}", c))
+                    Vitus::error(*line, &format!("Unexpected character: {}", c))
                 }
             }
             '!' => {
-                if self.matches_next('=') {
-                    self.add_token(TokenData::BangEqual)
+                if Scanner::matches_next(source, current_index, '=') {
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        tokens,
+                        TokenData::BangEqual,
+                    )
                 } else {
-                    self.add_token(TokenData::Bang)
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        tokens,
+                        TokenData::Bang,
+                    )
                 }
             }
             '=' => {
-                if self.matches_next('=') {
-                    self.add_token(TokenData::DoubleEqual)
+                if Scanner::matches_next(source, current_index, '=') {
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        tokens,
+                        TokenData::DoubleEqual,
+                    )
                 } else {
-                    self.add_token(TokenData::Equal)
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        tokens,
+                        TokenData::Equal,
+                    )
                 }
             }
             '>' => {
-                if self.matches_next('=') {
-                    self.add_token(TokenData::GreaterEqual)
+                if Scanner::matches_next(source, current_index, '=') {
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        tokens,
+                        TokenData::GreaterEqual,
+                    )
                 } else {
-                    self.add_token(TokenData::Greater)
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        tokens,
+                        TokenData::Greater,
+                    )
                 }
             }
             '<' => {
-                if self.matches_next('=') {
-                    self.add_token(TokenData::LessEqual)
+                if Scanner::matches_next(source, current_index, '=') {
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        tokens,
+                        TokenData::LessEqual,
+                    )
                 } else {
-                    self.add_token(TokenData::Less)
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        tokens,
+                        TokenData::Less,
+                    )
                 }
             }
             // Division operator and comments
             '/' => {
-                return if self.matches_next('/') {
+                return if Scanner::matches_next(source, current_index, '/') {
                     // A comment goes until the end of the line.
-                    while self.lookahead() != '\n' && !self.eof() {
+                    while Scanner::lookahead(source, *current_index) != '\n'
+                        && !Scanner::eof(source, *current_index)
+                    {
                         // We don't need to know the contents of the comment, so we ignore the value
-                        self.current += 1;
+                        *current_index += 1;
                     }
                 } else {
-                    self.add_token(TokenData::Slash);
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        tokens,
+                        TokenData::Slash,
+                    );
                 };
             }
 
@@ -147,137 +302,197 @@ impl Scanner<'_> {
             '\r' => (),
             '\t' => (),
             '\n' => {
-                self.line += 1;
+                *line += 1;
             }
 
             // String literals
-            '"' => self.string_literal(),
+            '"' => Scanner::string_literal(source, start_index, current_index, line, tokens),
 
             // Number literals
-            '0'..='9' => self.number_literal(),
+            '0'..='9' => Scanner::number_literal(source, start_index, current_index, line, tokens),
 
             // Identifier
-            'A'..='Z' | 'a'..='z' => self.identifier_or_keyword(),
-            _ => Vitus::error(self.line, &format!("Unexpected character: {}", c)),
+            'A'..='Z' | 'a'..='z' => Scanner::identifier_or_keyword(
+                source,
+                start_index,
+                current_index,
+                line,
+                tokens,
+                keywords,
+            ),
+            _ => Vitus::error(*line, &format!("Unexpected character: {}", c)),
         };
     }
 
-    fn advance(&mut self) -> char {
-        let current = self.source.chars().nth(self.current).unwrap();
+    fn advance(source: &str, current_index: &mut usize) -> char {
+        let current = source.chars().nth(*current_index).unwrap();
 
-        self.current += 1;
+        *current_index += 1;
 
         return current;
     }
 
-    fn matches_next(&mut self, char: char) -> bool {
-        if self.eof() {
+    fn matches_next(source: &str, current_index: &mut usize, char: char) -> bool {
+        if Scanner::eof(source, *current_index) {
             return false;
         }
 
-        let current = self.source.chars().nth(self.current).unwrap();
+        let current = source.chars().nth(*current_index).unwrap();
 
         if current != char {
             return false;
         }
 
         // Consume only if it matched the char
-        self.current += 1;
+        *current_index += 1;
 
         return true;
     }
 
     // Handlers:
 
-    fn string_literal(&mut self) {
-        while self.lookahead() != '"' && !self.eof() {
-            if self.lookahead() == '\n' {
-                self.line += 1;
+    fn string_literal(
+        source: &str,
+        start_index: usize,
+        current_index: &mut usize,
+        line: &mut u64,
+        tokens: &mut Vec<Token>,
+    ) {
+        while Scanner::lookahead(source, *current_index) != '"'
+            && !Scanner::eof(source, *current_index)
+        {
+            if Scanner::lookahead(source, *current_index) == '\n' {
+                *line += 1;
             }
-            self.advance();
+            Scanner::advance(source, current_index);
         }
 
-        if self.eof() {
-            Vitus::error(self.line, "Unterminated string");
+        if Scanner::eof(source, *current_index) {
+            Vitus::error(*line, "Unterminated string");
             return;
         }
 
         // Consume the closing quote
-        self.advance();
+        Scanner::advance(source, current_index);
 
-        let value: String = self
-            .source
+        let value: String = source
             .chars()
-            .skip(self.start + 1)
-            .take(self.current - self.start - 2)
+            .skip(start_index + 1)
+            .take(*current_index - start_index - 2)
             .collect();
 
-        self.add_token(TokenData::String(value.to_owned()));
+        Scanner::add_token(
+            source,
+            start_index,
+            *current_index,
+            *line,
+            tokens,
+            TokenData::String(value.to_owned()),
+        );
     }
 
-    fn number_literal(&mut self) {
+    fn number_literal(
+        source: &str,
+        start_index: usize,
+        current_index: &mut usize,
+        line: &mut u64,
+        tokens: &mut Vec<Token>,
+    ) {
         let mut is_float = false;
 
-        while self.lookahead().is_ascii_digit() {
-            self.advance();
+        while Scanner::lookahead(source, *current_index).is_ascii_digit() {
+            Scanner::advance(source, current_index);
         }
 
-        if self.lookahead() == '.' {
+        if Scanner::lookahead(source, *current_index) == '.' {
             is_float = true;
-            self.advance();
+            Scanner::advance(source, current_index);
 
             // Expect next character to be a digit after the dot
-            if !self.lookahead().is_ascii_digit() {
-                Vitus::error(self.line, "Invalid number");
+            if !Scanner::lookahead(source, *current_index).is_ascii_digit() {
+                Vitus::error(*line, "Invalid number");
                 return;
             }
 
-            while self.lookahead().is_ascii_digit() {
-                self.advance();
+            while Scanner::lookahead(source, *current_index).is_ascii_digit() {
+                Scanner::advance(source, current_index);
             }
         }
 
-        let lexeme: String = self
-            .source
+        let lexeme: String = source
             .chars()
-            .skip(self.start)
-            .take(self.current - self.start)
+            .skip(start_index)
+            .take(*current_index - start_index)
             .collect();
 
         if is_float {
             match lexeme.parse::<f64>() {
                 Err(_) => {
-                    return Vitus::error(self.line, "Invalid number (parsing failed)");
+                    return Vitus::error(*line, "Invalid number (parsing failed)");
                 }
-                Ok(value) => self.add_token(TokenData::Float(value)),
+                Ok(value) => Scanner::add_token(
+                    source,
+                    start_index,
+                    *current_index,
+                    *line,
+                    tokens,
+                    TokenData::Float(value),
+                ),
             }
         } else {
             match lexeme.parse::<i64>() {
                 Err(_) => {
-                    return Vitus::error(self.line, "Invalid number (parsing failed)");
+                    return Vitus::error(*line, "Invalid number (parsing failed)");
                 }
-                Ok(value) => self.add_token(TokenData::Integer(value)),
+                Ok(value) => Scanner::add_token(
+                    source,
+                    start_index,
+                    *current_index,
+                    *line,
+                    tokens,
+                    TokenData::Integer(value),
+                ),
             }
         }
     }
 
-    fn identifier_or_keyword(&mut self) {
-        while self.lookahead().is_ascii_alphanumeric() {
-            self.advance();
+    fn identifier_or_keyword(
+        source: &str,
+        start_index: usize,
+        current_index: &mut usize,
+        line: &mut u64,
+        tokens: &mut Vec<Token>,
+        keywords: &HashMap<String, TokenData>,
+    ) {
+        while Scanner::lookahead(source, *current_index).is_ascii_alphanumeric() {
+            Scanner::advance(source, current_index);
         }
 
-        let value: String = self
-            .source
+        let value: String = source
             .chars()
-            .skip(self.start)
-            .take(self.current - self.start)
+            .skip(start_index)
+            .take(*current_index - start_index)
             .collect();
 
         // If the value is a known keyword, add the token and return early
-        if let Some(keyword) = self.keywords.get(&value) {
-            return self.add_token(keyword.clone());
+        if let Some(keyword) = keywords.get(&value) {
+            return Scanner::add_token(
+                source,
+                start_index,
+                *current_index,
+                *line,
+                tokens,
+                keyword.clone(),
+            );
         }
 
-        self.add_token(TokenData::Identifier(value));
+        Scanner::add_token(
+            source,
+            start_index,
+            *current_index,
+            *line,
+            tokens,
+            TokenData::Identifier(value),
+        );
     }
 }
