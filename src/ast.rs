@@ -1,6 +1,6 @@
 use std::{fmt::Display, write};
 
-use crate::{parser::Parser, token::Token};
+use crate::{parser::{Parser, ParserError}, token::Token};
 
 fn generate_left_pad(depth: usize) -> String {
     return if depth > 0 {
@@ -105,11 +105,10 @@ pub struct AST<'a> {
 }
 
 impl<'a> AST<'a> {
-    pub fn new(tokens: &'a Vec<Token>) -> AST {
-        let mut current_index = 0;
-        let root = Parser::expression(tokens, &mut current_index);
+    pub fn new(tokens: &'a Vec<Token>) -> Result<AST, ParserError> {
+        let root = Parser::parse(tokens)?;
 
-        return AST { root };
+        return Ok(AST { root });
     }
 }
 

@@ -53,7 +53,12 @@ fn run(program: &str) {
 
     let tokens = Scanner::scan(program, &keywords);
 
+    println!("{:#?}", tokens);
+
     let ast = AST::new(&tokens);
 
-    println!("{}", ast);
+    match ast {
+        Ok(ast) => println!("{}", ast),
+        Err(e) => println!("{:#?}", e),
+    }
 }

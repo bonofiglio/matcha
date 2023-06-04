@@ -12,6 +12,7 @@ pub enum TokenData {
     SemiColon,
     Slash,
     Star,
+    BitwiseNot,
 
     // Multiple characters
     Bang,
@@ -24,6 +25,11 @@ pub enum TokenData {
     LessEqual,
     And,
     Or,
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
+    LeftShift,
+    RightShift,
 
     // Literals
     Identifier(String),
@@ -55,14 +61,16 @@ pub struct Token {
     pub token_data: TokenData,
     pub lexeme: String,
     pub line: u64,
+    pub position: u64
 }
 
 impl Token {
-    pub fn new(token_data: TokenData, lexeme: String, line: u64) -> Token {
+    pub fn new(token_data: TokenData, lexeme: String, line: u64, position: u64) -> Token {
         Token {
             token_data,
             lexeme,
             line,
+            position
         }
     }
 }

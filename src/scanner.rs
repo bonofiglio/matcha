@@ -2,25 +2,65 @@ use std::collections::HashMap;
 
 use crate::{
     token::{Token, TokenData},
-    vitus::Vitus,
 };
+
+const UNKNOWN_TOKEN_MESSAGE: &str = "Unknown token";
+const UNTERMINATED_STRING_MESSAGE: &str = "Unterminated string";
+const INVALID_NUMBER_MESSAGE: &str = "Invalid number";
+
+pub enum ScannerErrorType {
+    UnknownToken,
+    UnterminatedString,
+    InvalidNumber,
+}
+
+#[derive(Debug)]
+pub struct ScannerError {
+    pub message: &'static str,
+    pub line: u64,
+    pub position: u64,
+}
+
+impl ScannerError {
+    pub fn new(error_type: ScannerErrorType, line: u64, position: u64) -> ScannerError {
+        return match error_type {
+            ScannerErrorType::UnknownToken => ScannerError {
+                message: UNKNOWN_TOKEN_MESSAGE,
+                line,
+                position,
+            },
+            ScannerErrorType::UnterminatedString => ScannerError {
+                message: UNTERMINATED_STRING_MESSAGE,
+                line,
+                position,
+            },
+            ScannerErrorType::InvalidNumber => ScannerError {
+                message: INVALID_NUMBER_MESSAGE,
+                line,
+                position,
+            },
+        };
+    }
+}
 
 pub struct Scanner {}
 
-impl Scanner {
-    pub fn scan(source: &str, keywords: &HashMap<String, TokenData>) -> Vec<Token> {
+impl<'a> Scanner {
+    pub fn scan(source: &'a str, keywords: &HashMap<String, TokenData>) -> Vec<Token> {
         let mut current_index: usize = 0;
         let mut start_index: usize = 0;
         let mut line: u64 = 0;
+        let mut position: u64 = 0;
         let mut tokens = Vec::<Token>::new();
 
         while !Scanner::eof(source, current_index) {
             start_index = current_index;
-            Scanner::scan_token(
+            let result = Scanner::scan_token(
                 source,
                 start_index,
                 &mut current_index,
                 &mut line,
+                &mut position,
                 &mut tokens,
                 keywords,
             );
@@ -31,6 +71,7 @@ impl Scanner {
             start_index,
             current_index,
             line,
+            0,
             &mut tokens,
             TokenData::Eof,
         );
@@ -57,6 +98,7 @@ impl Scanner {
         start_index: usize,
         current_index: usize,
         line: u64,
+        position: u64,
         tokens: &mut Vec<Token>,
         token_data: TokenData,
     ) {
@@ -66,18 +108,19 @@ impl Scanner {
             .take(current_index - start_index)
             .collect();
 
-        tokens.push(Token::new(token_data, lexeme, line));
+        tokens.push(Token::new(token_data, lexeme, line, position));
     }
 
     fn scan_token(
-        source: &str,
+        source: &'a str,
         start_index: usize,
         current_index: &mut usize,
         line: &mut u64,
+        position: &mut u64,
         tokens: &mut Vec<Token>,
         keywords: &HashMap<String, TokenData>,
-    ) {
-        let c = Scanner::advance(source, current_index);
+    ) -> Result<(), ScannerError> {
+        let c = Scanner::advance(source, current_index, position);
 
         match c {
             // Single characters
@@ -86,6 +129,7 @@ impl Scanner {
                 start_index,
                 *current_index,
                 *line,
+                *position,
                 tokens,
                 TokenData::LeftParen,
             ),
@@ -94,6 +138,7 @@ impl Scanner {
                 start_index,
                 *current_index,
                 *line,
+                *position,
                 tokens,
                 TokenData::RightParen,
             ),
@@ -102,6 +147,7 @@ impl Scanner {
                 start_index,
                 *current_index,
                 *line,
+                *position,
                 tokens,
                 TokenData::LeftBrace,
             ),
@@ -110,6 +156,7 @@ impl Scanner {
                 start_index,
                 *current_index,
                 *line,
+                *position,
                 tokens,
                 TokenData::RightBrace,
             ),
@@ -118,6 +165,7 @@ impl Scanner {
                 start_index,
                 *current_index,
                 *line,
+                *position,
                 tokens,
                 TokenData::Comma,
             ),
@@ -126,6 +174,7 @@ impl Scanner {
                 start_index,
                 *current_index,
                 *line,
+                *position,
                 tokens,
                 TokenData::Dot,
             ),
@@ -134,6 +183,7 @@ impl Scanner {
                 start_index,
                 *current_index,
                 *line,
+                *position,
                 tokens,
                 TokenData::Minus,
             ),
@@ -142,6 +192,7 @@ impl Scanner {
                 start_index,
                 *current_index,
                 *line,
+                *position,
                 tokens,
                 TokenData::Plus,
             ),
@@ -150,6 +201,7 @@ impl Scanner {
                 start_index,
                 *current_index,
                 *line,
+                *position,
                 tokens,
                 TokenData::SemiColon,
             ),
@@ -158,46 +210,66 @@ impl Scanner {
                 start_index,
                 *current_index,
                 *line,
+                *position,
                 tokens,
                 TokenData::Star,
             ),
 
             // Operators
             '&' => {
-                if Scanner::matches_next(source, current_index, '&') {
+                if Scanner::matches_next(source, current_index, position, '&') {
                     Scanner::add_token(
                         source,
                         start_index,
                         *current_index,
                         *line,
+                        *position,
                         tokens,
                         TokenData::And,
                     )
                 } else {
-                    Vitus::error(*line, &format!("Unexpected character: {}", c))
-                }
-            }
-            '|' => {
-                if Scanner::matches_next(source, current_index, '|') {
                     Scanner::add_token(
                         source,
                         start_index,
                         *current_index,
                         *line,
+                        *position,
+                        tokens,
+                        TokenData::BitwiseAnd,
+                    )
+                }
+            }
+            '|' => {
+                if Scanner::matches_next(source, current_index, position, '|') {
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        *position,
                         tokens,
                         TokenData::Or,
                     )
                 } else {
-                    Vitus::error(*line, &format!("Unexpected character: {}", c))
-                }
-            }
-            '!' => {
-                if Scanner::matches_next(source, current_index, '=') {
                     Scanner::add_token(
                         source,
                         start_index,
                         *current_index,
                         *line,
+                        *position,
+                        tokens,
+                        TokenData::BitwiseOr,
+                    )
+                }
+            }
+            '!' => {
+                if Scanner::matches_next(source, current_index, position, '=') {
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        *position,
                         tokens,
                         TokenData::BangEqual,
                     )
@@ -207,18 +279,20 @@ impl Scanner {
                         start_index,
                         *current_index,
                         *line,
+                        *position,
                         tokens,
                         TokenData::Bang,
                     )
                 }
             }
             '=' => {
-                if Scanner::matches_next(source, current_index, '=') {
+                if Scanner::matches_next(source, current_index, position, '=') {
                     Scanner::add_token(
                         source,
                         start_index,
                         *current_index,
                         *line,
+                        *position,
                         tokens,
                         TokenData::DoubleEqual,
                     )
@@ -228,20 +302,32 @@ impl Scanner {
                         start_index,
                         *current_index,
                         *line,
+                        *position,
                         tokens,
                         TokenData::Equal,
                     )
                 }
             }
             '>' => {
-                if Scanner::matches_next(source, current_index, '=') {
+                if Scanner::matches_next(source, current_index, position, '=') {
                     Scanner::add_token(
                         source,
                         start_index,
                         *current_index,
                         *line,
+                        *position,
                         tokens,
                         TokenData::GreaterEqual,
+                    )
+                } else if Scanner::matches_next(source, current_index, position, '>') {
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        *position,
+                        tokens,
+                        TokenData::RightShift,
                     )
                 } else {
                     Scanner::add_token(
@@ -249,20 +335,32 @@ impl Scanner {
                         start_index,
                         *current_index,
                         *line,
+                        *position,
                         tokens,
                         TokenData::Greater,
                     )
                 }
             }
             '<' => {
-                if Scanner::matches_next(source, current_index, '=') {
+                if Scanner::matches_next(source, current_index, position, '=') {
                     Scanner::add_token(
                         source,
                         start_index,
                         *current_index,
                         *line,
+                        *position,
                         tokens,
                         TokenData::LessEqual,
+                    )
+                } else if Scanner::matches_next(source, current_index, position, '<') {
+                    Scanner::add_token(
+                        source,
+                        start_index,
+                        *current_index,
+                        *line,
+                        *position,
+                        tokens,
+                        TokenData::LeftShift,
                     )
                 } else {
                     Scanner::add_token(
@@ -270,20 +368,40 @@ impl Scanner {
                         start_index,
                         *current_index,
                         *line,
+                        *position,
                         tokens,
                         TokenData::Less,
                     )
                 }
             }
+            '^' => Scanner::add_token(
+                source,
+                start_index,
+                *current_index,
+                *line,
+                *position,
+                tokens,
+                TokenData::BitwiseXor,
+            ),
+            '~' => Scanner::add_token(
+                source,
+                start_index,
+                *current_index,
+                *line,
+                *position,
+                tokens,
+                TokenData::BitwiseNot,
+            ),
             // Division operator and comments
             '/' => {
-                return if Scanner::matches_next(source, current_index, '/') {
+                if Scanner::matches_next(source, current_index, position, '/') {
                     // A comment goes until the end of the line.
                     while Scanner::lookahead(source, *current_index) != '\n'
                         && !Scanner::eof(source, *current_index)
                     {
                         // We don't need to know the contents of the comment, so we ignore the value
                         *current_index += 1;
+                        *position += 1;
                     }
                 } else {
                     Scanner::add_token(
@@ -291,10 +409,12 @@ impl Scanner {
                         start_index,
                         *current_index,
                         *line,
+                        *position,
                         tokens,
                         TokenData::Slash,
                     );
                 };
+                return Ok(());
             }
 
             // Ignore characters without semantic meaning
@@ -303,13 +423,32 @@ impl Scanner {
             '\t' => (),
             '\n' => {
                 *line += 1;
+                *position = 0;
             }
 
             // String literals
-            '"' => Scanner::string_literal(source, start_index, current_index, line, tokens),
+            '"' => {
+                return Scanner::string_literal(
+                    source,
+                    start_index,
+                    current_index,
+                    line,
+                    position,
+                    tokens,
+                )
+            }
 
             // Number literals
-            '0'..='9' => Scanner::number_literal(source, start_index, current_index, line, tokens),
+            '0'..='9' => {
+                return Scanner::number_literal(
+                    source,
+                    start_index,
+                    current_index,
+                    line,
+                    position,
+                    tokens,
+                )
+            }
 
             // Identifier
             'A'..='Z' | 'a'..='z' => Scanner::identifier_or_keyword(
@@ -317,22 +456,37 @@ impl Scanner {
                 start_index,
                 current_index,
                 line,
+                position,
                 tokens,
                 keywords,
             ),
-            _ => Vitus::error(*line, &format!("Unexpected character: {}", c)),
+            _ => {
+                return Err(ScannerError::new(
+                    ScannerErrorType::UnknownToken,
+                    *line,
+                    *position,
+                ))
+            }
         };
+
+        return Ok(());
     }
 
-    fn advance(source: &str, current_index: &mut usize) -> char {
+    fn advance(source: &str, current_index: &mut usize, position: &mut u64) -> char {
         let current = source.chars().nth(*current_index).unwrap();
 
         *current_index += 1;
+        *position += 1;
 
         return current;
     }
 
-    fn matches_next(source: &str, current_index: &mut usize, char: char) -> bool {
+    fn matches_next(
+        source: &str,
+        current_index: &mut usize,
+        position: &mut u64,
+        char: char,
+    ) -> bool {
         if Scanner::eof(source, *current_index) {
             return false;
         }
@@ -345,6 +499,7 @@ impl Scanner {
 
         // Consume only if it matched the char
         *current_index += 1;
+        *position += 1;
 
         return true;
     }
@@ -356,24 +511,29 @@ impl Scanner {
         start_index: usize,
         current_index: &mut usize,
         line: &mut u64,
+        position: &mut u64,
         tokens: &mut Vec<Token>,
-    ) {
+    ) -> Result<(), ScannerError> {
         while Scanner::lookahead(source, *current_index) != '"'
             && !Scanner::eof(source, *current_index)
         {
             if Scanner::lookahead(source, *current_index) == '\n' {
                 *line += 1;
+                *position = 0;
             }
-            Scanner::advance(source, current_index);
+            Scanner::advance(source, current_index, position);
         }
 
         if Scanner::eof(source, *current_index) {
-            Vitus::error(*line, "Unterminated string");
-            return;
+            return Err(ScannerError::new(
+                ScannerErrorType::UnterminatedString,
+                *line,
+                *position,
+            ));
         }
 
         // Consume the closing quote
-        Scanner::advance(source, current_index);
+        Scanner::advance(source, current_index, position);
 
         let value: String = source
             .chars()
@@ -386,9 +546,11 @@ impl Scanner {
             start_index,
             *current_index,
             *line,
+            *position,
             tokens,
             TokenData::String(value.to_owned()),
         );
+        return Ok(());
     }
 
     fn number_literal(
@@ -396,26 +558,30 @@ impl Scanner {
         start_index: usize,
         current_index: &mut usize,
         line: &mut u64,
+        position: &mut u64,
         tokens: &mut Vec<Token>,
-    ) {
+    ) -> Result<(), ScannerError> {
         let mut is_float = false;
 
         while Scanner::lookahead(source, *current_index).is_ascii_digit() {
-            Scanner::advance(source, current_index);
+            Scanner::advance(source, current_index, position);
         }
 
         if Scanner::lookahead(source, *current_index) == '.' {
             is_float = true;
-            Scanner::advance(source, current_index);
+            Scanner::advance(source, current_index, position);
 
             // Expect next character to be a digit after the dot
             if !Scanner::lookahead(source, *current_index).is_ascii_digit() {
-                Vitus::error(*line, "Invalid number");
-                return;
+                return Err(ScannerError::new(
+                    ScannerErrorType::InvalidNumber,
+                    *line,
+                    *position,
+                ));
             }
 
             while Scanner::lookahead(source, *current_index).is_ascii_digit() {
-                Scanner::advance(source, current_index);
+                Scanner::advance(source, current_index, position);
             }
         }
 
@@ -428,13 +594,18 @@ impl Scanner {
         if is_float {
             match lexeme.parse::<f64>() {
                 Err(_) => {
-                    return Vitus::error(*line, "Invalid number (parsing failed)");
+                    return Err(ScannerError::new(
+                        ScannerErrorType::InvalidNumber,
+                        *line,
+                        *position,
+                    ))
                 }
                 Ok(value) => Scanner::add_token(
                     source,
                     start_index,
                     *current_index,
                     *line,
+                    *position,
                     tokens,
                     TokenData::Float(value),
                 ),
@@ -442,18 +613,24 @@ impl Scanner {
         } else {
             match lexeme.parse::<i64>() {
                 Err(_) => {
-                    return Vitus::error(*line, "Invalid number (parsing failed)");
+                    return Err(ScannerError::new(
+                        ScannerErrorType::InvalidNumber,
+                        *line,
+                        *position,
+                    ));
                 }
                 Ok(value) => Scanner::add_token(
                     source,
                     start_index,
                     *current_index,
                     *line,
+                    *position,
                     tokens,
                     TokenData::Integer(value),
                 ),
             }
         }
+        return Ok(());
     }
 
     fn identifier_or_keyword(
@@ -461,11 +638,12 @@ impl Scanner {
         start_index: usize,
         current_index: &mut usize,
         line: &mut u64,
+        position: &mut u64,
         tokens: &mut Vec<Token>,
         keywords: &HashMap<String, TokenData>,
     ) {
         while Scanner::lookahead(source, *current_index).is_ascii_alphanumeric() {
-            Scanner::advance(source, current_index);
+            Scanner::advance(source, current_index, position);
         }
 
         let value: String = source
@@ -481,6 +659,7 @@ impl Scanner {
                 start_index,
                 *current_index,
                 *line,
+                *position,
                 tokens,
                 keyword.clone(),
             );
@@ -491,6 +670,7 @@ impl Scanner {
             start_index,
             *current_index,
             *line,
+            *position,
             tokens,
             TokenData::Identifier(value),
         );

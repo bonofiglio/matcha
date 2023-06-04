@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 
-use crate::token::TokenData;
+use crate::token::{Token, TokenData};
+
+
 
 pub struct Vitus {}
 
-impl Vitus {
-    pub fn error(line: u64, message: &str) {
-        println!("[line: {}] Error: \"{}\"", line, message);
-    }
-
+impl<'a> Vitus {
     pub fn keywords() -> HashMap<String, TokenData> {
         return HashMap::from([
             ("class".to_owned(), TokenData::Class),
