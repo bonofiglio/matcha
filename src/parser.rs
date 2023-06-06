@@ -19,6 +19,7 @@ pub struct Parser {}
 impl<'a> Parser {
     pub fn parse(tokens: &'a Vec<Token>) -> Result<Expression<'a>, ParserError<'a>> {
         let mut current_index = 0;
+        let mut error_mode = false;
         return Parser::expression(tokens, &mut current_index);
     }
     pub fn expression(
@@ -176,6 +177,9 @@ impl<'a> Parser {
                     token,
                 ));
             }
+
+            Parser::advance(tokens, current_index);
+
             return Ok(Expression::Grouping(GroupingExpression {
                 expression: Box::new(expression),
             }));
