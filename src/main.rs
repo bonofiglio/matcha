@@ -11,6 +11,7 @@ use std::io::Write;
 use std::println;
 
 use crate::ast::AST;
+use crate::parser::Parser;
 use crate::scanner::Scanner;
 use crate::vitus::Vitus;
 
@@ -56,7 +57,8 @@ fn run(program: &str) {
     match tokens_result {
         Ok(tokens) => {
             println!("{:#?}", tokens);
-            let ast_result = AST::new(&tokens);
+            let mut parser = Parser::new(tokens);
+            let ast_result = AST::new(&mut parser);
 
             match ast_result {
                 Ok(ast) => println!("{}", ast),

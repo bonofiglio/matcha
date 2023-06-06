@@ -1,6 +1,9 @@
 use std::{fmt::Display, write};
 
-use crate::{parser::{Parser, ParserError}, token::Token};
+use crate::{
+    parser::{Parser, ParserError},
+    token::Token,
+};
 
 fn generate_left_pad(depth: usize) -> String {
     return if depth > 0 {
@@ -11,14 +14,14 @@ fn generate_left_pad(depth: usize) -> String {
 }
 
 #[derive(Debug)]
-pub enum Expression<'a> {
-    Binary(BinaryExpression<'a>),
-    Unary(UnaryExpression<'a>),
-    Literal(LiteralExpression<'a>),
-    Grouping(GroupingExpression<'a>),
+pub enum Expression {
+    Binary(BinaryExpression),
+    Unary(UnaryExpression),
+    Literal(LiteralExpression),
+    Grouping(GroupingExpression),
 }
 
-impl<'a> Expression<'a> {
+impl Expression {
     fn format(&self, depth: usize) -> String {
         return match self {
             Expression::Binary(ex) => ex.format(depth),
@@ -30,13 +33,13 @@ impl<'a> Expression<'a> {
 }
 
 #[derive(Debug)]
-pub struct BinaryExpression<'a> {
-    pub left: Box<Expression<'a>>,
-    pub operator: &'a Token,
-    pub right: Box<Expression<'a>>,
+pub struct BinaryExpression {
+    pub left: Box<Expression>,
+    pub operator: Token,
+    pub right: Box<Expression>,
 }
 
-impl<'a> BinaryExpression<'a> {
+impl BinaryExpression {
     fn format(&self, depth: usize) -> String {
         let left_pad = generate_left_pad(depth);
 
@@ -51,12 +54,12 @@ impl<'a> BinaryExpression<'a> {
 }
 
 #[derive(Debug)]
-pub struct UnaryExpression<'a> {
-    pub left: Box<Expression<'a>>,
-    pub operator: &'a Token,
+pub struct UnaryExpression {
+    pub left: Box<Expression>,
+    pub operator: Token,
 }
 
-impl<'a> UnaryExpression<'a> {
+impl UnaryExpression {
     pub fn format(&self, depth: usize) -> String {
         let left_pad = generate_left_pad(depth);
 
@@ -70,11 +73,11 @@ impl<'a> UnaryExpression<'a> {
 }
 
 #[derive(Debug)]
-pub struct LiteralExpression<'a> {
-    pub value: &'a Token,
+pub struct LiteralExpression {
+    pub value: Token,
 }
 
-impl<'a> LiteralExpression<'a> {
+impl LiteralExpression {
     fn format(&self, depth: usize) -> String {
         let left_pad = generate_left_pad(depth);
 
@@ -83,11 +86,11 @@ impl<'a> LiteralExpression<'a> {
 }
 
 #[derive(Debug)]
-pub struct GroupingExpression<'a> {
-    pub expression: Box<Expression<'a>>,
+pub struct GroupingExpression {
+    pub expression: Box<Expression>,
 }
 
-impl<'a> GroupingExpression<'a> {
+impl GroupingExpression {
     fn format(&self, depth: usize) -> String {
         let left_pad = generate_left_pad(depth);
 
@@ -100,19 +103,19 @@ impl<'a> GroupingExpression<'a> {
 }
 
 #[derive(Debug)]
-pub struct AST<'a> {
-    root: Expression<'a>,
+pub struct AST {
+    root: Expression,
 }
 
-impl<'a> AST<'a> {
-    pub fn new(tokens: &'a Vec<Token>) -> Result<AST, ParserError> {
-        let root = Parser::parse(tokens)?;
+impl AST {
+    pub fn new(parser: &mut Parser) -> Result<AST, ParserError> {
+        let root = parser.parse()?;
 
         return Ok(AST { root });
     }
 }
 
-impl<'a> Display for AST<'a> {
+impl Display for AST {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.root.format(0))
     }
