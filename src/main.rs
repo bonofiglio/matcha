@@ -51,14 +51,20 @@ fn repl() {
 fn run(program: &str) {
     let keywords = Vitus::keywords();
 
-    let tokens = Scanner::scan(program, &keywords);
+    let tokens_result = Scanner::scan(program, &keywords);
 
-    println!("{:#?}", tokens);
+    match tokens_result {
+        Ok(tokens) => {
+            println!("{:#?}", tokens);
+            let ast_result = AST::new(&tokens);
 
-    let ast = AST::new(&tokens);
-
-    match ast {
-        Ok(ast) => println!("{}", ast),
-        Err(e) => println!("{:#?}", e),
+            match ast_result {
+                Ok(ast) => println!("{}", ast),
+                Err(e) => println!("{:#?}", e),
+            }
+        }
+        Err(e) => {
+            println!("{:#?}", e)
+        }
     }
 }

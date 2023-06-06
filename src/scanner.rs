@@ -46,7 +46,7 @@ impl ScannerError {
 pub struct Scanner {}
 
 impl<'a> Scanner {
-    pub fn scan(source: &'a str, keywords: &HashMap<String, TokenData>) -> Vec<Token> {
+    pub fn scan(source: &'a str, keywords: &HashMap<String, TokenData>) -> Result<Vec<Token>, ScannerError> {
         let mut current_index: usize = 0;
         let mut start_index: usize = 0;
         let mut line: u64 = 0;
@@ -55,7 +55,7 @@ impl<'a> Scanner {
 
         while !Scanner::eof(source, current_index) {
             start_index = current_index;
-            let result = Scanner::scan_token(
+            Scanner::scan_token(
                 source,
                 start_index,
                 &mut current_index,
@@ -63,7 +63,7 @@ impl<'a> Scanner {
                 &mut position,
                 &mut tokens,
                 keywords,
-            );
+            )?;
         }
 
         Scanner::add_token(
@@ -76,7 +76,7 @@ impl<'a> Scanner {
             TokenData::Eof,
         );
 
-        return tokens;
+        return Ok(tokens);
     }
 
     // Helpers:
