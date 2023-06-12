@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{
-    token::{Token, TokenData},
-};
+use crate::token::{Token, TokenLiteral, TokenType};
 
 const UNKNOWN_TOKEN_MESSAGE: &str = "Unknown token";
 const UNTERMINATED_STRING_MESSAGE: &str = "Unterminated string";
@@ -46,7 +44,10 @@ impl ScannerError {
 pub struct Scanner {}
 
 impl<'a> Scanner {
-    pub fn scan(source: &'a str, keywords: &HashMap<String, TokenData>) -> Result<Vec<Token>, ScannerError> {
+    pub fn scan(
+        source: &'a str,
+        keywords: &HashMap<String, TokenType>,
+    ) -> Result<Vec<Token>, ScannerError> {
         let mut current_index: usize = 0;
         let mut start_index: usize = 0;
         let mut line: u64 = 0;
@@ -73,7 +74,8 @@ impl<'a> Scanner {
             line,
             0,
             &mut tokens,
-            TokenData::Eof,
+            TokenType::Eof,
+            None,
         );
 
         return Ok(tokens);
@@ -100,7 +102,8 @@ impl<'a> Scanner {
         line: u64,
         position: u64,
         tokens: &mut Vec<Token>,
-        token_data: TokenData,
+        token_type: TokenType,
+        literal: Option<TokenLiteral>,
     ) {
         let lexeme: String = source
             .chars()
@@ -108,7 +111,7 @@ impl<'a> Scanner {
             .take(current_index - start_index)
             .collect();
 
-        tokens.push(Token::new(token_data, lexeme, line, position));
+        tokens.push(Token::new(token_type, lexeme, line, position, literal));
     }
 
     fn scan_token(
@@ -118,7 +121,7 @@ impl<'a> Scanner {
         line: &mut u64,
         position: &mut u64,
         tokens: &mut Vec<Token>,
-        keywords: &HashMap<String, TokenData>,
+        keywords: &HashMap<String, TokenType>,
     ) -> Result<(), ScannerError> {
         let c = Scanner::advance(source, current_index, position);
 
@@ -131,7 +134,8 @@ impl<'a> Scanner {
                 *line,
                 *position,
                 tokens,
-                TokenData::LeftParen,
+                TokenType::LeftParen,
+                None,
             ),
             ')' => Scanner::add_token(
                 source,
@@ -140,7 +144,8 @@ impl<'a> Scanner {
                 *line,
                 *position,
                 tokens,
-                TokenData::RightParen,
+                TokenType::RightParen,
+                None,
             ),
             '{' => Scanner::add_token(
                 source,
@@ -149,7 +154,8 @@ impl<'a> Scanner {
                 *line,
                 *position,
                 tokens,
-                TokenData::LeftBrace,
+                TokenType::LeftBrace,
+                None,
             ),
             '}' => Scanner::add_token(
                 source,
@@ -158,7 +164,8 @@ impl<'a> Scanner {
                 *line,
                 *position,
                 tokens,
-                TokenData::RightBrace,
+                TokenType::RightBrace,
+                None,
             ),
             ',' => Scanner::add_token(
                 source,
@@ -167,7 +174,8 @@ impl<'a> Scanner {
                 *line,
                 *position,
                 tokens,
-                TokenData::Comma,
+                TokenType::Comma,
+                None,
             ),
             '.' => Scanner::add_token(
                 source,
@@ -176,7 +184,8 @@ impl<'a> Scanner {
                 *line,
                 *position,
                 tokens,
-                TokenData::Dot,
+                TokenType::Dot,
+                None,
             ),
             '-' => Scanner::add_token(
                 source,
@@ -185,7 +194,8 @@ impl<'a> Scanner {
                 *line,
                 *position,
                 tokens,
-                TokenData::Minus,
+                TokenType::Minus,
+                None,
             ),
             '+' => Scanner::add_token(
                 source,
@@ -194,7 +204,8 @@ impl<'a> Scanner {
                 *line,
                 *position,
                 tokens,
-                TokenData::Plus,
+                TokenType::Plus,
+                None,
             ),
             ';' => Scanner::add_token(
                 source,
@@ -203,7 +214,8 @@ impl<'a> Scanner {
                 *line,
                 *position,
                 tokens,
-                TokenData::SemiColon,
+                TokenType::SemiColon,
+                None,
             ),
             '*' => Scanner::add_token(
                 source,
@@ -212,7 +224,8 @@ impl<'a> Scanner {
                 *line,
                 *position,
                 tokens,
-                TokenData::Star,
+                TokenType::Star,
+                None,
             ),
 
             // Operators
@@ -225,7 +238,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::And,
+                        TokenType::And,
+                        None,
                     )
                 } else {
                     Scanner::add_token(
@@ -235,7 +249,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::BitwiseAnd,
+                        TokenType::BitwiseAnd,
+                        None,
                     )
                 }
             }
@@ -248,7 +263,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::Or,
+                        TokenType::Or,
+                        None,
                     )
                 } else {
                     Scanner::add_token(
@@ -258,7 +274,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::BitwiseOr,
+                        TokenType::BitwiseOr,
+                        None,
                     )
                 }
             }
@@ -271,7 +288,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::BangEqual,
+                        TokenType::BangEqual,
+                        None,
                     )
                 } else {
                     Scanner::add_token(
@@ -281,7 +299,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::Bang,
+                        TokenType::Bang,
+                        None,
                     )
                 }
             }
@@ -294,7 +313,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::DoubleEqual,
+                        TokenType::DoubleEqual,
+                        None,
                     )
                 } else {
                     Scanner::add_token(
@@ -304,7 +324,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::Equal,
+                        TokenType::Equal,
+                        None,
                     )
                 }
             }
@@ -317,7 +338,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::GreaterEqual,
+                        TokenType::GreaterEqual,
+                        None,
                     )
                 } else if Scanner::matches_next(source, current_index, position, '>') {
                     Scanner::add_token(
@@ -327,7 +349,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::RightShift,
+                        TokenType::RightShift,
+                        None,
                     )
                 } else {
                     Scanner::add_token(
@@ -337,7 +360,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::Greater,
+                        TokenType::Greater,
+                        None,
                     )
                 }
             }
@@ -350,7 +374,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::LessEqual,
+                        TokenType::LessEqual,
+                        None,
                     )
                 } else if Scanner::matches_next(source, current_index, position, '<') {
                     Scanner::add_token(
@@ -360,7 +385,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::LeftShift,
+                        TokenType::LeftShift,
+                        None,
                     )
                 } else {
                     Scanner::add_token(
@@ -370,7 +396,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::Less,
+                        TokenType::Less,
+                        None,
                     )
                 }
             }
@@ -381,7 +408,8 @@ impl<'a> Scanner {
                 *line,
                 *position,
                 tokens,
-                TokenData::BitwiseXor,
+                TokenType::BitwiseXor,
+                None,
             ),
             '~' => Scanner::add_token(
                 source,
@@ -390,7 +418,8 @@ impl<'a> Scanner {
                 *line,
                 *position,
                 tokens,
-                TokenData::BitwiseNot,
+                TokenType::BitwiseNot,
+                None,
             ),
             // Division operator and comments
             '/' => {
@@ -411,7 +440,8 @@ impl<'a> Scanner {
                         *line,
                         *position,
                         tokens,
-                        TokenData::Slash,
+                        TokenType::Slash,
+                        None,
                     );
                 };
                 return Ok(());
@@ -548,7 +578,8 @@ impl<'a> Scanner {
             *line,
             *position,
             tokens,
-            TokenData::String(value.to_owned()),
+            TokenType::String,
+            Some(TokenLiteral::String(value.to_owned())),
         );
         return Ok(());
     }
@@ -607,7 +638,8 @@ impl<'a> Scanner {
                     *line,
                     *position,
                     tokens,
-                    TokenData::Float(value),
+                    TokenType::Float,
+                    Some(TokenLiteral::Float(value)),
                 ),
             }
         } else {
@@ -626,7 +658,8 @@ impl<'a> Scanner {
                     *line,
                     *position,
                     tokens,
-                    TokenData::Integer(value),
+                    TokenType::Integer,
+                    Some(TokenLiteral::Integer(value)),
                 ),
             }
         }
@@ -640,7 +673,7 @@ impl<'a> Scanner {
         line: &mut u64,
         position: &mut u64,
         tokens: &mut Vec<Token>,
-        keywords: &HashMap<String, TokenData>,
+        keywords: &HashMap<String, TokenType>,
     ) {
         while Scanner::lookahead(source, *current_index).is_ascii_alphanumeric() {
             Scanner::advance(source, current_index, position);
@@ -662,6 +695,7 @@ impl<'a> Scanner {
                 *position,
                 tokens,
                 keyword.clone(),
+                None,
             );
         }
 
@@ -672,7 +706,8 @@ impl<'a> Scanner {
             *line,
             *position,
             tokens,
-            TokenData::Identifier(value),
+            TokenType::Identifier,
+            Some(TokenLiteral::String(value)),
         );
     }
 }

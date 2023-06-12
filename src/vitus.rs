@@ -1,28 +1,26 @@
 use std::collections::HashMap;
 
-use crate::token::{Token, TokenData};
-
-
+use crate::token::TokenType;
 
 pub struct Vitus {}
 
 impl<'a> Vitus {
-    pub fn keywords() -> HashMap<String, TokenData> {
+    pub fn keywords() -> HashMap<String, TokenType> {
         return HashMap::from([
-            ("class".to_owned(), TokenData::Class),
-            ("else".to_owned(), TokenData::Else),
-            ("false".to_owned(), TokenData::False),
-            ("func".to_owned(), TokenData::Func),
-            ("for".to_owned(), TokenData::For),
-            ("if".to_owned(), TokenData::If),
-            ("nil".to_owned(), TokenData::Nil),
-            ("print".to_owned(), TokenData::Print),
-            ("return".to_owned(), TokenData::Return),
-            ("super".to_owned(), TokenData::Super),
-            ("this".to_owned(), TokenData::This),
-            ("true".to_owned(), TokenData::True),
-            ("var".to_owned(), TokenData::Var),
-            ("while".to_owned(), TokenData::While),
+            ("class".to_owned(), TokenType::Class),
+            ("else".to_owned(), TokenType::Else),
+            ("false".to_owned(), TokenType::False),
+            ("func".to_owned(), TokenType::Func),
+            ("for".to_owned(), TokenType::For),
+            ("if".to_owned(), TokenType::If),
+            ("nil".to_owned(), TokenType::Nil),
+            ("print".to_owned(), TokenType::Print),
+            ("return".to_owned(), TokenType::Return),
+            ("super".to_owned(), TokenType::Super),
+            ("this".to_owned(), TokenType::This),
+            ("true".to_owned(), TokenType::True),
+            ("var".to_owned(), TokenType::Var),
+            ("while".to_owned(), TokenType::While),
         ]);
     }
 }

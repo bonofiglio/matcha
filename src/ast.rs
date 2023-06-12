@@ -108,7 +108,7 @@ pub struct AST {
 }
 
 impl AST {
-    pub fn new(parser: &mut Parser) -> Result<AST, ParserError> {
+    pub fn new(parser: &mut Parser) -> Result<AST, Vec<ParserError>> {
         let root = parser.parse()?;
 
         return Ok(AST { root });

@@ -1,6 +1,6 @@
 use crate::{
     ast::{BinaryExpression, Expression, GroupingExpression, LiteralExpression, UnaryExpression},
-    token::{Token, TokenData},
+    token::{Token, TokenType},
 };
 
 #[derive(Debug)]
@@ -17,7 +17,6 @@ impl ParserError {
 
 pub struct Parser {
     current_index: usize,
-    error_mode: bool,
     tokens: Vec<Token>,
 }
 
@@ -25,21 +24,65 @@ impl Parser {
     pub fn new(tokens: Vec<Token>) -> Parser {
         return Parser {
             current_index: 0,
-            error_mode: false,
             tokens,
         };
     }
-    pub fn parse(&mut self) -> Result<Expression, ParserError> {
-        return self.expression();
+
+    pub fn parse(&mut self) -> Result<Expression, Vec<ParserError>> {
+        self.current_index = 0;
+
+        let mut errors = Vec::<ParserError>::new();
+
+        while !self.is_end() {
+            let result = self.expression();
+
+            match result {
+                Ok(expression) => {
+                    if errors.len() == 0 {
+                        return Ok(expression);
+                    }
+                }
+                Err(e) => {
+                    errors.push(e);
+                    self.sync()
+                }
+            }
+        }
+
+        return Err(errors);
     }
-    pub fn expression(&mut self) -> Result<Expression, ParserError> {
+
+    fn sync(&mut self) {
+        self.advance();
+
+        while !self.is_end() {
+            // Skip any tokens that are not one of the specified
+            match self.previous().token_type {
+                TokenType::SemiColon
+                | TokenType::For
+                | TokenType::While
+                | TokenType::Class
+                | TokenType::Func
+                | TokenType::Var
+                | TokenType::If
+                | TokenType::Return => {
+                    return;
+                }
+                _ => {
+                    self.advance();
+                }
+            }
+        }
+    }
+
+    fn expression(&mut self) -> Result<Expression, ParserError> {
         return self.equality();
     }
 
     fn equality(&mut self) -> Result<Expression, ParserError> {
         let mut expr = self.comparison()?;
 
-        while self.match_token_types(&[&TokenData::DoubleEqual, &TokenData::BangEqual]) {
+        while self.match_token_types(&[&TokenType::DoubleEqual, &TokenType::BangEqual]) {
             let operator = self.previous().clone();
             let right = Box::new(self.comparison()?);
 
@@ -57,10 +100,10 @@ impl Parser {
         let mut expr = self.term()?;
 
         while self.match_token_types(&[
-            &TokenData::Greater,
-            &TokenData::GreaterEqual,
-            &TokenData::Less,
-            &TokenData::LessEqual,
+            &TokenType::Greater,
+            &TokenType::GreaterEqual,
+            &TokenType::Less,
+            &TokenType::LessEqual,
         ]) {
             let operator = self.previous().clone();
             let right = self.term()?;
@@ -78,7 +121,7 @@ impl Parser {
     fn term(&mut self) -> Result<Expression, ParserError> {
         let mut expr = self.factor()?;
 
-        while self.match_token_types(&[&TokenData::Minus, &TokenData::Plus]) {
+        while self.match_token_types(&[&TokenType::Minus, &TokenType::Plus]) {
             let operator = self.previous().clone();
             let right = self.factor()?;
 
@@ -95,7 +138,7 @@ impl Parser {
     fn factor(&mut self) -> Result<Expression, ParserError> {
         let mut expr = self.unary()?;
 
-        while self.match_token_types(&[&TokenData::Slash, &TokenData::Star]) {
+        while self.match_token_types(&[&TokenType::Slash, &TokenType::Star]) {
             let operator = self.previous().clone();
             let right = self.unary()?;
 
@@ -110,7 +153,7 @@ impl Parser {
     }
 
     fn unary(&mut self) -> Result<Expression, ParserError> {
-        if self.match_token_types(&[&TokenData::Bang, &TokenData::Minus]) {
+        if self.match_token_types(&[&TokenType::Bang, &TokenType::Minus]) {
             let operator = self.previous().clone();
 
             return Ok(Expression::Unary(UnaryExpression {
@@ -124,12 +167,12 @@ impl Parser {
 
     fn primary(&mut self) -> Result<Expression, ParserError> {
         if self.match_token_types(&[
-            &TokenData::False,
-            &TokenData::True,
-            &TokenData::Nil,
-            &TokenData::String(String::new()),
-            &TokenData::Integer(0),
-            &TokenData::Float(0.0),
+            &TokenType::False,
+            &TokenType::True,
+            &TokenType::Nil,
+            &TokenType::String,
+            &TokenType::Integer,
+            &TokenType::Float,
         ]) {
             let value = self.previous();
             return Ok(Expression::Literal(LiteralExpression {
@@ -137,9 +180,9 @@ impl Parser {
             }));
         }
 
-        if self.match_token_types(&[&TokenData::LeftParen]) {
+        if self.match_token_types(&[&TokenType::LeftParen]) {
             let expression = self.expression()?;
-            if !self.check(&TokenData::RightParen) {
+            if !self.check(&TokenType::RightParen) {
                 let token = self.next();
                 return Err(ParserError::new(
                     format!("Expected ')' after expression. Got: {}", token.lexeme),
@@ -163,8 +206,8 @@ impl Parser {
     }
 
     fn is_end(&self) -> bool {
-        return std::mem::discriminant(&self.next().token_data)
-            == std::mem::discriminant(&TokenData::Eof);
+        return std::mem::discriminant(&self.next().token_type)
+            == std::mem::discriminant(&TokenType::Eof);
     }
 
     fn next(&self) -> &Token {
@@ -175,13 +218,13 @@ impl Parser {
         return &self.tokens[self.current_index - 1];
     }
 
-    fn check(&self, token_type: &TokenData) -> bool {
+    fn check(&self, token_type: &TokenType) -> bool {
         if self.is_end() {
             return false;
         }
 
         return std::mem::discriminant(token_type)
-            == std::mem::discriminant(&self.next().token_data);
+            == std::mem::discriminant(&self.next().token_type);
     }
 
     fn advance(&mut self) -> &Token {
@@ -192,7 +235,7 @@ impl Parser {
         return self.previous();
     }
 
-    fn match_token_types(&mut self, types: &[&TokenData]) -> bool {
+    fn match_token_types(&mut self, types: &[&TokenType]) -> bool {
         for token_type in types {
             if self.check(token_type) {
                 self.advance();
