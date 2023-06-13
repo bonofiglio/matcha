@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::token::{Token, TokenLiteral, TokenType};
 
@@ -17,6 +17,16 @@ pub struct ScannerError {
     pub message: &'static str,
     pub line: u64,
     pub position: u64,
+}
+
+impl Display for ScannerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "Scanner error at {}:{}. {}",
+            self.line, self.position, self.message
+        )
+    }
 }
 
 impl ScannerError {
@@ -72,7 +82,7 @@ impl<'a> Scanner {
             start_index,
             current_index,
             line,
-            0,
+            position,
             &mut tokens,
             TokenType::Eof,
             None,

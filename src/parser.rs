@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{
     ast::{BinaryExpression, Expression, GroupingExpression, LiteralExpression, UnaryExpression},
     token::{Token, TokenType},
@@ -12,6 +14,16 @@ pub struct ParserError {
 impl ParserError {
     pub fn new(message: String, token: Token) -> ParserError {
         return ParserError { message, token };
+    }
+}
+
+impl Display for ParserError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "Parser error at {}:{}. {}",
+            self.token.line, self.token.position, self.message
+        )
     }
 }
 

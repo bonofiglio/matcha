@@ -62,11 +62,15 @@ fn run(program: &str) {
 
             match ast_result {
                 Ok(ast) => println!("{}", ast),
-                Err(e) => println!("{:#?}", e),
+                Err(errors) => {
+                    for error in errors {
+                        eprintln!("{}", error)
+                    }
+                }
             }
         }
         Err(e) => {
-            println!("{:#?}", e)
+            eprintln!("{}", e)
         }
     }
 }
