@@ -64,13 +64,15 @@ fn run(program: &str) {
                 Ok(ast) => println!("{}", ast),
                 Err(errors) => {
                     for error in errors {
-                        eprintln!("{}", error)
+                        eprintln!("{}", error);
+                        std::process::exit(1);
                     }
                 }
             }
         }
         Err(e) => {
-            eprintln!("{}", e)
+            eprintln!("{}", e);
+            std::process::exit(1);
         }
     }
 }
