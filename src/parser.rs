@@ -19,7 +19,7 @@ impl ParserError {
 
 impl Display for ParserError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(
+        write!(
             f,
             "Parser error at {}:{}. {}",
             self.token.line, self.token.position, self.message

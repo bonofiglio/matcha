@@ -1,6 +1,9 @@
-use std::{collections::HashMap, fmt::Display};
+use std::fmt::Display;
 
-use crate::token::{Token, TokenLiteral, TokenType};
+use crate::{
+    token::{Token, TokenType},
+    vitus::{Literal, NumberLiteral, KEYWORDS},
+};
 
 const UNKNOWN_TOKEN_MESSAGE: &str = "Unknown token";
 const UNTERMINATED_STRING_MESSAGE: &str = "Unterminated string";
@@ -21,7 +24,7 @@ pub struct ScannerError {
 
 impl Display for ScannerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(
+        write!(
             f,
             "Scanner error at {}:{}. {}",
             self.line, self.position, self.message
@@ -54,10 +57,7 @@ impl ScannerError {
 pub struct Scanner {}
 
 impl<'a> Scanner {
-    pub fn scan(
-        source: &'a str,
-        keywords: &HashMap<String, TokenType>,
-    ) -> Result<Vec<Token>, ScannerError> {
+    pub fn scan(source: &'a str) -> Result<Vec<Token>, ScannerError> {
         let mut current_index: usize = 0;
         let mut start_index: usize = 0;
         let mut line: u64 = 0;
@@ -73,7 +73,6 @@ impl<'a> Scanner {
                 &mut line,
                 &mut position,
                 &mut tokens,
-                keywords,
             )?;
         }
 
@@ -113,7 +112,7 @@ impl<'a> Scanner {
         position: u64,
         tokens: &mut Vec<Token>,
         token_type: TokenType,
-        literal: Option<TokenLiteral>,
+        literal: Option<Literal>,
     ) {
         let lexeme: String = source
             .chars()
@@ -131,7 +130,6 @@ impl<'a> Scanner {
         line: &mut u64,
         position: &mut u64,
         tokens: &mut Vec<Token>,
-        keywords: &HashMap<String, TokenType>,
     ) -> Result<(), ScannerError> {
         let c = Scanner::advance(source, current_index, position);
 
@@ -498,7 +496,6 @@ impl<'a> Scanner {
                 line,
                 position,
                 tokens,
-                keywords,
             ),
             _ => {
                 return Err(ScannerError::new(
@@ -589,7 +586,7 @@ impl<'a> Scanner {
             *position,
             tokens,
             TokenType::String,
-            Some(TokenLiteral::String(value.to_owned())),
+            Some(Literal::String(value.to_owned())),
         );
         return Ok(());
     }
@@ -649,7 +646,7 @@ impl<'a> Scanner {
                     *position,
                     tokens,
                     TokenType::Float,
-                    Some(TokenLiteral::Float(value)),
+                    Some(Literal::Number(NumberLiteral::Float(value))),
                 ),
             }
         } else {
@@ -669,7 +666,7 @@ impl<'a> Scanner {
                     *position,
                     tokens,
                     TokenType::Integer,
-                    Some(TokenLiteral::Integer(value)),
+                    Some(Literal::Number(NumberLiteral::Integer(value))),
                 ),
             }
         }
@@ -683,7 +680,6 @@ impl<'a> Scanner {
         line: &mut u64,
         position: &mut u64,
         tokens: &mut Vec<Token>,
-        keywords: &HashMap<String, TokenType>,
     ) {
         while Scanner::lookahead(source, *current_index).is_ascii_alphanumeric() {
             Scanner::advance(source, current_index, position);
@@ -696,7 +692,7 @@ impl<'a> Scanner {
             .collect();
 
         // If the value is a known keyword, add the token and return early
-        if let Some(keyword) = keywords.get(&value) {
+        if let Some(keyword) = KEYWORDS.get(&value) {
             return Scanner::add_token(
                 source,
                 start_index,
@@ -717,7 +713,7 @@ impl<'a> Scanner {
             *position,
             tokens,
             TokenType::Identifier,
-            Some(TokenLiteral::String(value)),
+            Some(Literal::String(value)),
         );
     }
 }

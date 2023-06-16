@@ -13,7 +13,7 @@ fn generate_left_pad(depth: usize) -> String {
     };
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     Binary(BinaryExpression),
     Unary(UnaryExpression),
@@ -32,7 +32,7 @@ impl Expression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BinaryExpression {
     pub left: Box<Expression>,
     pub operator: Token,
@@ -53,7 +53,7 @@ impl BinaryExpression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UnaryExpression {
     pub left: Box<Expression>,
     pub operator: Token,
@@ -72,7 +72,7 @@ impl UnaryExpression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LiteralExpression {
     pub value: Token,
 }
@@ -85,7 +85,7 @@ impl LiteralExpression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GroupingExpression {
     pub expression: Box<Expression>,
 }
@@ -104,7 +104,7 @@ impl GroupingExpression {
 
 #[derive(Debug)]
 pub struct AST {
-    root: Expression,
+    pub root: Expression,
 }
 
 impl AST {

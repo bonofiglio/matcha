@@ -1,4 +1,5 @@
 mod ast;
+mod interpreter;
 mod parser;
 mod scanner;
 mod token;
@@ -11,9 +12,9 @@ use std::io::Write;
 use std::println;
 
 use crate::ast::AST;
+use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
-use crate::vitus::Vitus;
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -50,18 +51,22 @@ fn repl() {
 }
 
 fn run(program: &str) {
-    let keywords = Vitus::keywords();
-
-    let tokens_result = Scanner::scan(program, &keywords);
+    let tokens_result = Scanner::scan(program);
 
     match tokens_result {
         Ok(tokens) => {
-            println!("{:#?}", tokens);
             let mut parser = Parser::new(tokens);
             let ast_result = AST::new(&mut parser);
 
             match ast_result {
-                Ok(ast) => println!("{}", ast),
+                Ok(ast) => {
+                    let interpreter_result = Interpreter::interpret(ast);
+
+                    match interpreter_result {
+                        Ok(result) => println!("{}", result),
+                        Err(e) => eprintln!("{:#?}", e),
+                    }
+                }
                 Err(errors) => {
                     for error in errors {
                         eprintln!("{}", error);

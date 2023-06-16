@@ -1,3 +1,5 @@
+use crate::vitus::Literal;
+
 #[derive(Debug, Clone)]
 pub enum TokenType {
     // Single character
@@ -57,19 +59,12 @@ pub enum TokenType {
 }
 
 #[derive(Debug, Clone)]
-pub enum TokenLiteral {
-    String(String),
-    Float(f64),
-    Integer(i64),
-}
-
-#[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
     pub line: u64,
     pub position: u64,
-    pub literal: Option<TokenLiteral>,
+    pub literal: Option<Literal>,
 }
 
 impl Token {
@@ -78,7 +73,7 @@ impl Token {
         lexeme: String,
         line: u64,
         position: u64,
-        literal: Option<TokenLiteral>,
+        literal: Option<Literal>,
     ) -> Token {
         Token {
             token_type,
