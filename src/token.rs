@@ -1,6 +1,6 @@
 use crate::vitus::Literal;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // Single character
     LeftParen,
@@ -40,7 +40,7 @@ pub enum TokenType {
     Float,
 
     // Reserved keywords
-    Class,
+    Struct,
     Else,
     False,
     Func,
@@ -52,7 +52,7 @@ pub enum TokenType {
     Super,
     This,
     True,
-    Var,
+    Let,
     While,
 
     Eof,

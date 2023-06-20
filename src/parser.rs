@@ -1,10 +1,12 @@
 use std::fmt::Display;
 
 use crate::{
-    ast::{BinaryExpression, Expression, GroupingExpression, LiteralExpression, UnaryExpression},
+    statement::{
+        BinaryExpression, Expression, GroupingExpression, LiteralExpression, Statement,
+        UnaryExpression, VariableDeclaration, VariableExpression,
+    },
     token::{Token, TokenType},
 };
-
 #[derive(Debug)]
 pub struct ParserError {
     pub message: String,
@@ -40,25 +42,28 @@ impl Parser {
         };
     }
 
-    pub fn parse(&mut self) -> Result<Expression, Vec<ParserError>> {
+    pub fn parse(&mut self) -> Result<Vec<Statement>, Vec<ParserError>> {
         self.current_index = 0;
 
+        let mut statements = Vec::<Statement>::new();
         let mut errors = Vec::<ParserError>::new();
 
         while !self.is_end() {
-            let result = self.expression();
+            let result = self.statement();
 
             match result {
-                Ok(expression) => {
-                    if errors.len() == 0 {
-                        return Ok(expression);
-                    }
+                Ok(statement) => {
+                    statements.push(statement);
                 }
                 Err(e) => {
                     errors.push(e);
                     self.sync()
                 }
             }
+        }
+
+        if errors.len() == 0 {
+            return Ok(statements);
         }
 
         return Err(errors);
@@ -73,9 +78,9 @@ impl Parser {
                 TokenType::SemiColon
                 | TokenType::For
                 | TokenType::While
-                | TokenType::Class
+                | TokenType::Struct
                 | TokenType::Func
-                | TokenType::Var
+                | TokenType::Let
                 | TokenType::If
                 | TokenType::Return => {
                     return;
@@ -85,6 +90,47 @@ impl Parser {
                 }
             }
         }
+    }
+
+    fn statement(&mut self) -> Result<Statement, ParserError> {
+        if self.match_token_types(&[&TokenType::Let]) {
+            return self.variable_declaration();
+        }
+
+        return self.expression_statement();
+    }
+
+    fn variable_declaration(&mut self) -> Result<Statement, ParserError> {
+        let identifier = self
+            .consume_token(TokenType::Identifier, "Expected identifier".to_owned())?
+            .clone();
+
+        let initializer = if self.match_token_types(&[&TokenType::Equal]) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+
+        let declaration = Statement::VariableDeclaration(VariableDeclaration {
+            identifier,
+            initializer,
+        });
+
+        let _ = self.consume_token(TokenType::SemiColon, "Expected ';'".to_owned())?;
+
+        return Ok(declaration);
+    }
+
+    fn expression_statement(&mut self) -> Result<Statement, ParserError> {
+        let expr = self.expression()?;
+
+        if self.is_end() {
+            return Ok(Statement::Expression(expr));
+        }
+
+        let _ = self.consume_token(TokenType::SemiColon, "Expected ';'".to_owned());
+
+        return Ok(Statement::Expression(expr));
     }
 
     fn expression(&mut self) -> Result<Expression, ParserError> {
@@ -192,6 +238,13 @@ impl Parser {
             }));
         }
 
+        if self.next().token_type == TokenType::Identifier {
+            self.advance();
+            return Ok(Expression::Variable(VariableExpression {
+                value: self.previous().clone(),
+            }));
+        }
+
         if self.match_token_types(&[&TokenType::LeftParen]) {
             let expression = self.expression()?;
             if !self.check(&TokenType::RightParen) {
@@ -212,7 +265,7 @@ impl Parser {
         let current = self.next();
 
         return Err(ParserError::new(
-            "Unexpected character".to_owned(),
+            format!("Unexpected token '{:#?}'", current),
             current.clone(),
         ));
     }
@@ -256,5 +309,20 @@ impl Parser {
         }
 
         return false;
+    }
+
+    fn consume_token(
+        &mut self,
+        token_type: TokenType,
+        error_message: String,
+    ) -> Result<&Token, ParserError> {
+        self.advance();
+        let previous = self.previous();
+
+        if previous.token_type == token_type {
+            return Ok(previous);
+        }
+
+        return Err(ParserError::new(error_message, previous.clone()));
     }
 }

@@ -1,6 +1,8 @@
 use crate::{
-    ast::{
-        BinaryExpression, Expression, GroupingExpression, LiteralExpression, UnaryExpression, AST,
+    environment::Environment,
+    statement::{
+        BinaryExpression, Expression, GroupingExpression, LiteralExpression, Statement,
+        UnaryExpression, VariableDeclaration, VariableExpression,
     },
     token::TokenType,
     vitus::{Literal, NumberLiteral, Value},
@@ -17,19 +19,58 @@ pub struct InterpreterError {
     pub expression: Expression,
 }
 
-pub struct Interpreter {}
+pub struct Interpreter {
+    environment: Environment,
+}
 
 impl Interpreter {
-    pub fn interpret(ast: AST) -> Result<Value, InterpreterError> {
-        return Interpreter::evaluate(&ast.root);
+    pub fn new() -> Interpreter {
+        return Interpreter {
+            environment: Environment::new(),
+        };
     }
 
-    fn evaluate(expression: &Expression) -> Result<Value, InterpreterError> {
+    pub fn interpret(&mut self, statements: Vec<Statement>) -> Result<Value, InterpreterError> {
+        for i in 0..statements.len() {
+            // Return last value
+            if i == statements.len() - 1 {
+                return Ok(Interpreter::evaluate(
+                    &mut self.environment,
+                    &statements[i],
+                )?);
+            }
+
+            Interpreter::evaluate(&mut self.environment, &statements[i])?;
+        }
+
+        return Ok(Value::Empty);
+    }
+
+    fn evaluate(
+        environment: &mut Environment,
+        statement: &Statement,
+    ) -> Result<Value, InterpreterError> {
+        return match statement {
+            Statement::VariableDeclaration(decl) => {
+                let _ = Interpreter::variable_declaration(environment, decl)?;
+                return Ok(Value::Empty);
+            }
+            Statement::Expression(expression) => Interpreter::expression(environment, expression),
+        };
+    }
+
+    fn expression(
+        environment: &Environment,
+        expression: &Expression,
+    ) -> Result<Value, InterpreterError> {
         return match expression {
             Expression::Literal(literal) => Interpreter::literal(literal),
-            Expression::Unary(unary) => Interpreter::unary(unary),
-            Expression::Grouping(grouping) => Interpreter::grouping(grouping),
-            Expression::Binary(binary) => Interpreter::binary(binary),
+            Expression::Unary(unary) => Interpreter::unary(environment, unary),
+            Expression::Grouping(grouping) => Interpreter::grouping(environment, grouping),
+            Expression::Binary(binary) => Interpreter::binary(environment, binary),
+            Expression::Variable(variable) => {
+                Interpreter::variable_expression(environment, variable)
+            }
         };
     }
 
@@ -43,12 +84,18 @@ impl Interpreter {
         return Ok(Value::Literal(value.clone().unwrap()));
     }
 
-    fn grouping(grouping: &GroupingExpression) -> Result<Value, InterpreterError> {
-        return Interpreter::evaluate(&grouping.expression);
+    fn grouping(
+        environment: &Environment,
+        grouping: &GroupingExpression,
+    ) -> Result<Value, InterpreterError> {
+        return Interpreter::expression(environment, &grouping.expression);
     }
 
-    fn unary(unary: &UnaryExpression) -> Result<Value, InterpreterError> {
-        let value = match Interpreter::evaluate(&unary.left) {
+    fn unary(
+        environment: &Environment,
+        unary: &UnaryExpression,
+    ) -> Result<Value, InterpreterError> {
+        let value = match Interpreter::expression(environment, &unary.left) {
             Ok(value) => match value {
                 Value::Empty => Err(InterpreterError {
                     message: EMPTY_VALUE_OPERATION_ERROR_MESSAGE.to_owned(),
@@ -105,9 +152,12 @@ impl Interpreter {
         }
     }
 
-    fn binary(binary: &BinaryExpression) -> Result<Value, InterpreterError> {
-        let left_value = Interpreter::evaluate(&binary.left)?;
-        let right_value = Interpreter::evaluate(&binary.right)?;
+    fn binary(
+        environment: &Environment,
+        binary: &BinaryExpression,
+    ) -> Result<Value, InterpreterError> {
+        let left_value = Interpreter::expression(environment, &binary.left)?;
+        let right_value = Interpreter::expression(environment, &binary.right)?;
 
         match binary.operator.token_type {
             TokenType::Plus => {
@@ -163,5 +213,47 @@ impl Interpreter {
                 expression: Expression::Binary(binary.clone()),
             }),
         }
+    }
+
+    fn variable_declaration(
+        environment: &mut Environment,
+        decl: &VariableDeclaration,
+    ) -> Result<(), InterpreterError> {
+        environment.values.insert(
+            decl.identifier.lexeme.to_owned(),
+            match decl.initializer {
+                Some(ref initializer) => match initializer {
+                    Expression::Literal(literal_expression) => {
+                        match literal_expression.value.literal {
+                            Some(ref literal) => Value::Literal(literal.clone()),
+                            None => Value::Optional(None),
+                        }
+                    }
+                    _ => Interpreter::expression(environment, &initializer)?,
+                },
+                None => Value::Empty,
+            },
+        );
+
+        return Ok(());
+    }
+
+    fn variable_expression(
+        environment: &Environment,
+        variable: &VariableExpression,
+    ) -> Result<Value, InterpreterError> {
+        return match environment.values.get(&variable.value.lexeme) {
+            Some(value) => Ok(value.clone()),
+            None => match environment.parent {
+                Some(ref parent) => Interpreter::variable_expression(parent, variable),
+                None => Err(InterpreterError {
+                    expression: Expression::Variable(variable.clone()),
+                    message: format!(
+                        "Variable '{}' not found in the current scope",
+                        variable.value.lexeme
+                    ),
+                }),
+            },
+        };
     }
 }

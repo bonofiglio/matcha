@@ -692,7 +692,7 @@ impl<'a> Scanner {
             .collect();
 
         // If the value is a known keyword, add the token and return early
-        if let Some(keyword) = KEYWORDS.get(&value) {
+        if let Some(keyword) = KEYWORDS.get(value.as_str()) {
             return Scanner::add_token(
                 source,
                 start_index,

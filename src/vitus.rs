@@ -8,22 +8,21 @@ use once_cell::sync::Lazy;
 
 use crate::token::TokenType;
 
-pub static KEYWORDS: Lazy<HashMap<String, TokenType>> = Lazy::new(|| {
+pub static KEYWORDS: Lazy<HashMap<&str, TokenType>> = Lazy::new(|| {
     HashMap::from([
-        ("class".to_owned(), TokenType::Class),
-        ("else".to_owned(), TokenType::Else),
-        ("false".to_owned(), TokenType::False),
-        ("func".to_owned(), TokenType::Func),
-        ("for".to_owned(), TokenType::For),
-        ("if".to_owned(), TokenType::If),
-        ("nil".to_owned(), TokenType::Nil),
-        ("print".to_owned(), TokenType::Print),
-        ("return".to_owned(), TokenType::Return),
-        ("super".to_owned(), TokenType::Super),
-        ("this".to_owned(), TokenType::This),
-        ("true".to_owned(), TokenType::True),
-        ("var".to_owned(), TokenType::Var),
-        ("while".to_owned(), TokenType::While),
+        ("struct", TokenType::Struct),
+        ("else", TokenType::Else),
+        ("false", TokenType::False),
+        ("func", TokenType::Func),
+        ("for", TokenType::For),
+        ("if", TokenType::If),
+        ("nil", TokenType::Nil),
+        ("return", TokenType::Return),
+        ("super", TokenType::Super),
+        ("this", TokenType::This),
+        ("true", TokenType::True),
+        ("let", TokenType::Let),
+        ("while", TokenType::While),
     ])
 });
 
@@ -143,7 +142,7 @@ impl Div for NumberLiteral {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Value {
     Empty,
     Optional(Option<Literal>),
