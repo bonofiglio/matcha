@@ -1,10 +1,10 @@
 mod environment;
 mod interpreter;
+mod matcha;
 mod parser;
 mod scanner;
 mod statement;
 mod token;
-mod vitus;
 
 use std::env;
 use std::fs;
@@ -71,7 +71,7 @@ fn run_file(options: &Options, path: &str) {
 
 fn repl(options: &Options) {
     let mut line = String::new();
-    println!("Vitus {}", env!("CARGO_PKG_VERSION"));
+    println!("Matcha 🍵 {}", env!("CARGO_PKG_VERSION"));
 
     let mut interpreter = Interpreter::new();
 

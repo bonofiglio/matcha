@@ -128,7 +128,7 @@ impl Parser {
             return Ok(Statement::Expression(expr));
         }
 
-        let _ = self.consume_token(TokenType::SemiColon, "Expected ';'".to_owned());
+        let _ = self.consume_token(TokenType::SemiColon, "Expected ';'".to_owned())?;
 
         return Ok(Statement::Expression(expr));
     }

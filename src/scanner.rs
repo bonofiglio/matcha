@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
 use crate::{
+    matcha::{Literal, NumberLiteral, KEYWORDS},
     token::{Token, TokenType},
-    vitus::{Literal, NumberLiteral, KEYWORDS},
 };
 
 const UNKNOWN_TOKEN_MESSAGE: &str = "Unknown token";

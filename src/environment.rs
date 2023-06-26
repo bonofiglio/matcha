@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::vitus::Value;
+use crate::matcha::Value;
 
 pub struct Environment {
     pub values: HashMap<String, Value>,

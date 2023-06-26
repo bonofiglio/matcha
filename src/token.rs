@@ -1,4 +1,4 @@
-use crate::vitus::Literal;
+use crate::matcha::Literal;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
