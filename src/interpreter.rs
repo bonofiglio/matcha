@@ -1,9 +1,11 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
     environment::Environment,
     matcha::{Literal, NumberLiteral, Value},
     statement::{
-        BinaryExpression, Expression, GroupingExpression, LiteralExpression, Statement,
-        UnaryExpression, VariableDeclaration, VariableExpression,
+        AssignmentExpression, BinaryExpression, Expression, GroupingExpression, IfStatement,
+        LiteralExpression, Statement, UnaryExpression, VariableDeclaration, VariableExpression,
     },
     token::TokenType,
 };
@@ -23,7 +25,7 @@ pub struct Interpreter {}
 
 impl Interpreter {
     pub fn interpret(
-        environment: &mut Environment,
+        environment: Rc<RefCell<Environment>>,
         statements: &Vec<Statement>,
     ) -> Result<Value, InterpreterError> {
         for i in 0..statements.len() {
@@ -32,14 +34,14 @@ impl Interpreter {
                 return Ok(Interpreter::evaluate(environment, &statements[i])?);
             }
 
-            Interpreter::evaluate(environment, &statements[i])?;
+            Interpreter::evaluate(Rc::clone(&environment), &statements[i])?;
         }
 
         return Ok(Value::Empty);
     }
 
     fn evaluate(
-        environment: &mut Environment,
+        environment: Rc<RefCell<Environment>>,
         statement: &Statement,
     ) -> Result<Value, InterpreterError> {
         return match statement {
@@ -49,11 +51,12 @@ impl Interpreter {
             }
             Statement::Expression(expression) => Interpreter::expression(environment, expression),
             Statement::Block(block) => Interpreter::block(environment, block),
+            Statement::If(if_statement) => Interpreter::if_statement(environment, if_statement),
         };
     }
 
     fn expression(
-        environment: &Environment,
+        environment: Rc<RefCell<Environment>>,
         expression: &Expression,
     ) -> Result<Value, InterpreterError> {
         return match expression {
@@ -62,8 +65,9 @@ impl Interpreter {
             Expression::Grouping(grouping) => Interpreter::grouping(environment, grouping),
             Expression::Binary(binary) => Interpreter::binary(environment, binary),
             Expression::Variable(variable) => {
-                Interpreter::variable_expression(environment, variable)
+                Interpreter::variable_expression(&environment.borrow(), variable)
             }
+            Expression::Assignment(assignment) => Interpreter::assign(environment, assignment),
         };
     }
 
@@ -80,14 +84,14 @@ impl Interpreter {
     }
 
     fn grouping(
-        environment: &Environment,
+        environment: Rc<RefCell<Environment>>,
         grouping: &GroupingExpression,
     ) -> Result<Value, InterpreterError> {
         return Interpreter::expression(environment, &grouping.expression);
     }
 
     fn unary(
-        environment: &Environment,
+        environment: Rc<RefCell<Environment>>,
         unary: &UnaryExpression,
     ) -> Result<Value, InterpreterError> {
         let value = match Interpreter::expression(environment, &unary.left) {
@@ -148,11 +152,11 @@ impl Interpreter {
     }
 
     fn binary(
-        environment: &Environment,
+        environment: Rc<RefCell<Environment>>,
         binary: &BinaryExpression,
     ) -> Result<Value, InterpreterError> {
-        let left_value = Interpreter::expression(environment, &binary.left)?;
-        let right_value = Interpreter::expression(environment, &binary.right)?;
+        let left_value = Interpreter::expression(Rc::clone(&environment), &binary.left)?;
+        let right_value = Interpreter::expression(Rc::clone(&environment), &binary.right)?;
 
         match binary.operator.token_type {
             TokenType::Plus => {
@@ -179,7 +183,96 @@ impl Interpreter {
 
                 return Ok(Value::Literal(Literal::Number(left / right)));
             }
-            _ => todo!(),
+            TokenType::Greater => {
+                let left = Interpreter::unwrap_number(left_value, binary)?;
+                let right = Interpreter::unwrap_number(right_value, binary)?;
+
+                return Ok(Value::Literal(Literal::Boolean(left > right)));
+            }
+            TokenType::GreaterEqual => {
+                let left = Interpreter::unwrap_number(left_value, binary)?;
+                let right = Interpreter::unwrap_number(right_value, binary)?;
+
+                return Ok(Value::Literal(Literal::Boolean(left >= right)));
+            }
+            TokenType::Less => {
+                let left = Interpreter::unwrap_number(left_value, binary)?;
+                let right = Interpreter::unwrap_number(right_value, binary)?;
+
+                return Ok(Value::Literal(Literal::Boolean(left < right)));
+            }
+            TokenType::LessEqual => {
+                let left = Interpreter::unwrap_number(left_value, binary)?;
+                let right = Interpreter::unwrap_number(right_value, binary)?;
+
+                return Ok(Value::Literal(Literal::Boolean(left <= right)));
+            }
+            TokenType::DoubleEqual => {
+                return match (left_value, right_value) {
+                    (Value::Literal(ref left_literal), Value::Literal(ref right_literal)) => {
+                        return match (left_literal, right_literal) {
+                            (Literal::Number(left_number), Literal::Number(right_number)) => Ok(
+                                Value::Literal(Literal::Boolean(left_number == right_number)),
+                            ),
+                            (Literal::String(left_string), Literal::String(right_string)) => Ok(
+                                Value::Literal(Literal::Boolean(left_string == right_string)),
+                            ),
+                            (Literal::Boolean(left_bool), Literal::Boolean(right_bool)) => {
+                                Ok(Value::Literal(Literal::Boolean(left_bool == right_bool)))
+                            }
+                            _ => Err(InterpreterError {
+                                message: format!(
+                                    "Can't compare {} with {}",
+                                    left_literal.get_type(),
+                                    right_literal.get_type()
+                                ),
+                                statement: Statement::Expression(Expression::Binary(
+                                    binary.clone(),
+                                )),
+                            }),
+                        }
+                    }
+                    _ => Err(InterpreterError {
+                        message: "Can't compare non-literal values".to_owned(),
+                        statement: Statement::Expression(Expression::Binary(binary.clone())),
+                    }),
+                };
+            }
+            TokenType::BangEqual => {
+                return match (left_value, right_value) {
+                    (Value::Literal(ref left_literal), Value::Literal(ref right_literal)) => {
+                        return match (left_literal, right_literal) {
+                            (Literal::Number(left_number), Literal::Number(right_number)) => Ok(
+                                Value::Literal(Literal::Boolean(left_number != right_number)),
+                            ),
+                            (Literal::String(left_string), Literal::String(right_string)) => Ok(
+                                Value::Literal(Literal::Boolean(left_string != right_string)),
+                            ),
+                            (Literal::Boolean(left_bool), Literal::Boolean(right_bool)) => {
+                                Ok(Value::Literal(Literal::Boolean(left_bool != right_bool)))
+                            }
+                            _ => Err(InterpreterError {
+                                message: format!(
+                                    "Can't compare {} with {}",
+                                    left_literal.get_type(),
+                                    right_literal.get_type()
+                                ),
+                                statement: Statement::Expression(Expression::Binary(
+                                    binary.clone(),
+                                )),
+                            }),
+                        }
+                    }
+                    _ => Err(InterpreterError {
+                        message: "Can't compare non-literal values".to_owned(),
+                        statement: Statement::Expression(Expression::Binary(binary.clone())),
+                    }),
+                };
+            }
+            _ => Err(InterpreterError {
+                message: format!("Invalid operator '{}'", binary.operator.lexeme),
+                statement: Statement::Expression(Expression::Binary(binary.clone())),
+            }),
         }
     }
 
@@ -211,24 +304,24 @@ impl Interpreter {
     }
 
     fn variable_declaration(
-        environment: &mut Environment,
+        environment: Rc<RefCell<Environment>>,
         decl: &VariableDeclaration,
     ) -> Result<(), InterpreterError> {
-        let result = environment.values.insert(
-            decl.identifier.lexeme.to_owned(),
-            match decl.initializer {
-                Some(ref initializer) => match initializer {
-                    Expression::Literal(literal_expression) => {
-                        match literal_expression.value.literal {
-                            Some(ref literal) => Value::Literal(literal.clone()),
-                            None => Value::Optional(None),
-                        }
-                    }
-                    _ => Interpreter::expression(environment, &initializer)?,
+        let value = match decl.initializer {
+            Some(ref initializer) => match initializer {
+                Expression::Literal(literal_expression) => match literal_expression.value.literal {
+                    Some(ref literal) => Value::Literal(literal.clone()),
+                    None => Value::Optional(None),
                 },
-                None => Value::Empty,
+                _ => Interpreter::expression(Rc::clone(&environment), &initializer)?,
             },
-        );
+            None => Value::Empty,
+        };
+
+        let result = environment
+            .borrow_mut()
+            .values
+            .insert(decl.identifier.lexeme.to_owned(), value);
 
         if result.is_some() {
             return Err(InterpreterError {
@@ -239,7 +332,6 @@ impl Interpreter {
                 ),
             });
         }
-
         return Ok(());
     }
 
@@ -250,7 +342,7 @@ impl Interpreter {
         return match environment.values.get(&variable.value.lexeme) {
             Some(value) => Ok(value.clone()),
             None => match environment.parent {
-                Some(ref parent) => Interpreter::variable_expression(parent, variable),
+                Some(ref parent) => Interpreter::variable_expression(&parent.borrow(), variable),
                 None => Err(InterpreterError {
                     statement: Statement::Expression(Expression::Variable(variable.clone())),
                     message: format!(
@@ -263,11 +355,85 @@ impl Interpreter {
     }
 
     fn block(
-        environment: &mut Environment,
+        environment: Rc<RefCell<Environment>>,
         statements: &Vec<Statement>,
     ) -> Result<Value, InterpreterError> {
-        let mut inner_environment = Environment::with_parent(environment);
+        let mut inner_environment = Rc::new(RefCell::new(Environment::with_parent(environment)));
 
-        return Interpreter::interpret(&mut inner_environment, statements);
+        return Interpreter::interpret(inner_environment, statements);
+    }
+
+    fn if_statement(
+        environment: Rc<RefCell<Environment>>,
+        if_statement: &IfStatement,
+    ) -> Result<Value, InterpreterError> {
+        let condition_result =
+            Interpreter::expression(Rc::clone(&environment), &if_statement.condition)?;
+
+        let statements_to_execute = match condition_result {
+            Value::Literal(literal) => match literal {
+                Literal::Boolean(bool_literal) => {
+                    if bool_literal {
+                        Some(&if_statement.statements)
+                    } else {
+                        match if_statement.else_statements {
+                            Some(ref statements) => Some(statements),
+                            None => None,
+                        }
+                    }
+                }
+                _ => {
+                    return Err(InterpreterError {
+                        message: "Expected boolean condition".to_owned(),
+                        statement: Statement::If(if_statement.clone()),
+                    })
+                }
+            },
+            _ => {
+                return Err(InterpreterError {
+                    message: "Expected boolean condition".to_owned(),
+                    statement: Statement::If(if_statement.clone()),
+                })
+            }
+        };
+
+        return match statements_to_execute {
+            Some(ref statements) => Interpreter::block(environment, statements),
+            None => Ok(Value::Empty),
+        };
+    }
+
+    fn assign(
+        environment: Rc<RefCell<Environment>>,
+        assignment: &AssignmentExpression,
+    ) -> Result<Value, InterpreterError> {
+        let mut env_borrow = environment.borrow_mut();
+        let current_value = env_borrow.values.get(&assignment.name.lexeme);
+
+        match current_value {
+            Some(_) => {
+                let new_value =
+                    Interpreter::expression(Rc::clone(&environment), &assignment.value)?;
+                let prev = env_borrow.values.get_mut(&assignment.name.lexeme).unwrap();
+
+                *prev = new_value;
+
+                return Ok(Value::Empty);
+            }
+            None => match &env_borrow.parent {
+                Some(parent) => return Ok(Interpreter::assign(Rc::clone(parent), assignment)?),
+                None => {
+                    return Err(InterpreterError {
+                        message: format!(
+                            "Cannot assign a value to undeclared variable '{}'",
+                            assignment.name.lexeme
+                        ),
+                        statement: Statement::Expression(Expression::Assignment(
+                            assignment.clone(),
+                        )),
+                    })
+                }
+            },
+        }
     }
 }

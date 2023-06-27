@@ -2,8 +2,8 @@ use std::fmt::Display;
 
 use crate::{
     statement::{
-        BinaryExpression, Expression, GroupingExpression, LiteralExpression, Statement,
-        UnaryExpression, VariableDeclaration, VariableExpression,
+        AssignmentExpression, BinaryExpression, Expression, GroupingExpression, IfStatement,
+        LiteralExpression, Statement, UnaryExpression, VariableDeclaration, VariableExpression,
     },
     token::{Token, TokenType},
 };
@@ -94,6 +94,10 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Statement, ParserError> {
+        if self.match_token_types(&[&TokenType::If]) {
+            return self.if_statement();
+        }
+
         if self.match_token_types(&[&TokenType::Let]) {
             return self.variable_declaration();
         }
@@ -135,11 +139,38 @@ impl Parser {
     }
 
     fn expression(&mut self) -> Result<Expression, ParserError> {
-        return self.equality();
+        return self.assignment();
+    }
+
+    fn assignment(&mut self) -> Result<Expression, ParserError> {
+        let expr = self.equality()?;
+
+        if self.match_token_types(&[&TokenType::Equal]) {
+            let equals = self.previous();
+
+            match expr {
+                Expression::Variable(variable) => {
+                    return Ok(Expression::Assignment(AssignmentExpression {
+                        value: Box::new(self.assignment()?),
+                        name: variable.value,
+                    }))
+                }
+                _ => {
+                    return Err(ParserError {
+                        message: "Invalid assignment target".to_owned(),
+                        token: equals.clone(),
+                    })
+                }
+            }
+        };
+
+        return Ok(expr);
     }
 
     fn equality(&mut self) -> Result<Expression, ParserError> {
         let mut expr = self.comparison()?;
+
+        if self.check(&TokenType::Equal) {}
 
         while self.match_token_types(&[&TokenType::DoubleEqual, &TokenType::BangEqual]) {
             let operator = self.previous().clone();
@@ -337,5 +368,33 @@ impl Parser {
         let _ = self.consume_token(TokenType::RightBrace, "Expected '}' after block".to_owned())?;
 
         return Ok(statements);
+    }
+
+    fn if_statement(&mut self) -> Result<Statement, ParserError> {
+        let condition = self.expression()?;
+
+        let _ = self.consume_token(
+            TokenType::LeftBrace,
+            "Expected '{{' after condition".to_owned(),
+        )?;
+
+        let statements = self.block()?;
+
+        let else_statements = if self.match_token_types(&[&TokenType::Else]) {
+            let _ = self.consume_token(
+                TokenType::LeftBrace,
+                "Expected '{{' after condition".to_owned(),
+            )?;
+
+            Some(self.block()?)
+        } else {
+            None
+        };
+
+        return Ok(Statement::If(IfStatement {
+            condition,
+            statements,
+            else_statements,
+        }));
     }
 }

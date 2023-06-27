@@ -6,11 +6,13 @@ mod scanner;
 mod statement;
 mod token;
 
+use std::cell::RefCell;
 use std::env;
 use std::fs;
 use std::io;
 use std::io::Write;
 use std::println;
+use std::rc::Rc;
 
 use environment::Environment;
 
@@ -62,9 +64,9 @@ fn main() {
 
 fn run_file(options: &Options, path: &str) {
     let contents = fs::read_to_string(path).unwrap();
-    let mut environment = Environment::new();
+    let environment = Rc::new(RefCell::new(Environment::new()));
 
-    let exit_code = run(options, &contents, &mut environment);
+    let exit_code = run(options, &contents, environment);
 
     if exit_code != 0 {
         std::process::exit(1);
@@ -75,21 +77,21 @@ fn repl(options: &Options) {
     let mut line = String::new();
     println!("Matcha 🍵 {}", env!("CARGO_PKG_VERSION"));
 
-    let mut environment = Environment::new();
+    let environment = Rc::new(RefCell::new(Environment::new()));
 
     loop {
         print!(">>> ");
         io::stdout().flush().unwrap();
         io::stdin().read_line(&mut line).unwrap();
         if line.len() > 0 {
-            run(options, &line, &mut environment);
+            run(options, &line, Rc::clone(&environment));
         }
 
         line.clear();
     }
 }
 
-fn run(options: &Options, program: &str, environment: &mut Environment) -> u8 {
+fn run(options: &Options, program: &str, environment: Rc<RefCell<Environment>>) -> u8 {
     let tokens_result = Scanner::scan(program);
 
     match tokens_result {

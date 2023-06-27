@@ -650,7 +650,7 @@ impl<'a> Scanner {
                 ),
             }
         } else {
-            match lexeme.parse::<i64>() {
+            match lexeme.parse::<i32>() {
                 Err(_) => {
                     return Err(ScannerError::new(
                         ScannerErrorType::InvalidNumber,
@@ -693,6 +693,12 @@ impl<'a> Scanner {
 
         // If the value is a known keyword, add the token and return early
         if let Some(keyword) = KEYWORDS.get(value.as_str()) {
+            let literal = match keyword {
+                TokenType::True => Some(Literal::Boolean(true)),
+                TokenType::False => Some(Literal::Boolean(false)),
+                _ => None,
+            };
+
             return Scanner::add_token(
                 source,
                 start_index,
@@ -701,7 +707,7 @@ impl<'a> Scanner {
                 *position,
                 tokens,
                 keyword.clone(),
-                None,
+                literal,
             );
         }
 

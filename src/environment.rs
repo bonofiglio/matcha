@@ -1,21 +1,21 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::matcha::Value;
 
-pub struct Environment<'a> {
+pub struct Environment {
     pub values: HashMap<String, Value>,
-    pub parent: Option<&'a Environment<'a>>,
+    pub parent: Option<Rc<RefCell<Environment>>>,
 }
 
-impl<'a> Environment<'a> {
-    pub fn new() -> Environment<'a> {
+impl Environment {
+    pub fn new() -> Environment {
         return Environment {
             values: HashMap::new(),
             parent: None,
         };
     }
 
-    pub fn with_parent(parent: &'a Environment) -> Environment<'a> {
+    pub fn with_parent(parent: Rc<RefCell<Environment>>) -> Environment {
         return Environment {
             values: HashMap::new(),
             parent: Some(parent),
