@@ -47,7 +47,6 @@ pub enum TokenType {
     For,
     If,
     Nil,
-    Print,
     Return,
     Super,
     This,

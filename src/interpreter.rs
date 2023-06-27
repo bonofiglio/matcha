@@ -1,5 +1,3 @@
-use std::{cell::RefCell, rc::Rc};
-
 use crate::{
     environment::Environment,
     matcha::{Literal, NumberLiteral, Value},
@@ -18,20 +16,12 @@ const EMPTY_VALUE_OPERATION_ERROR_MESSAGE: &str =
 #[derive(Debug)]
 pub struct InterpreterError {
     pub message: String,
-    pub expression: Expression,
+    pub statement: Statement,
 }
 
-pub struct Interpreter<'a> {
-    environment: Environment<'a>,
-}
+pub struct Interpreter {}
 
-impl<'a> Interpreter<'a> {
-    pub fn new() -> Interpreter<'a> {
-        return Interpreter {
-            environment: Environment::new(),
-        };
-    }
-
+impl Interpreter {
     pub fn interpret(
         environment: &mut Environment,
         statements: &Vec<Statement>,
@@ -84,7 +74,7 @@ impl<'a> Interpreter<'a> {
             None => Err(InterpreterError {
                 message: "Literal expression value is None. This should never be the case."
                     .to_owned(),
-                expression: Expression::Literal(literal.clone()),
+                statement: Statement::Expression(Expression::Literal(literal.clone())),
             }),
         };
     }
@@ -104,11 +94,11 @@ impl<'a> Interpreter<'a> {
             Ok(value) => match value {
                 Value::Empty => Err(InterpreterError {
                     message: EMPTY_VALUE_OPERATION_ERROR_MESSAGE.to_owned(),
-                    expression: Expression::Unary(unary.clone()),
+                    statement: Statement::Expression(Expression::Unary(unary.clone())),
                 }),
                 Value::Optional(_) => Err(InterpreterError {
                     message: NULLABLE_VALUE_OPERATION_ERROR_MESSAGE.to_owned(),
-                    expression: Expression::Unary(unary.clone()),
+                    statement: Statement::Expression(Expression::Unary(unary.clone())),
                 }),
                 Value::Literal(literal) => Ok(literal),
             },
@@ -132,7 +122,7 @@ impl<'a> Interpreter<'a> {
                 _ => {
                     return Err(InterpreterError {
                         message: "Cannot use operator \"-\" on non-numeric value".to_owned(),
-                        expression: Expression::Unary(unary.clone()),
+                        statement: Statement::Expression(Expression::Unary(unary.clone())),
                     })
                 }
             },
@@ -141,7 +131,7 @@ impl<'a> Interpreter<'a> {
                 _ => {
                     return Err(InterpreterError {
                         message: "Cannot negate non-boolean value".to_owned(),
-                        expression: Expression::Unary(unary.clone()),
+                        statement: Statement::Expression(Expression::Unary(unary.clone())),
                     })
                 }
             },
@@ -151,7 +141,7 @@ impl<'a> Interpreter<'a> {
                         "Unexpected unary operator. {} is not a valid unary operator",
                         &unary.operator.lexeme
                     ),
-                    expression: Expression::Unary(unary.clone()),
+                    statement: Statement::Expression(Expression::Unary(unary.clone())),
                 })
             }
         }
@@ -202,20 +192,20 @@ impl<'a> Interpreter<'a> {
                 Literal::Number(number) => Ok(number),
                 Literal::String(_) => Err(InterpreterError {
                     message: "Expected number, got string".to_owned(),
-                    expression: Expression::Binary(binary.clone()),
+                    statement: Statement::Expression(Expression::Binary(binary.clone())),
                 }),
                 Literal::Boolean(_) => Err(InterpreterError {
                     message: "Expected number, got boolean".to_owned(),
-                    expression: Expression::Binary(binary.clone()),
+                    statement: Statement::Expression(Expression::Binary(binary.clone())),
                 }),
             },
             Value::Empty => Err(InterpreterError {
                 message: EMPTY_VALUE_OPERATION_ERROR_MESSAGE.to_owned(),
-                expression: Expression::Binary(binary.clone()),
+                statement: Statement::Expression(Expression::Binary(binary.clone())),
             }),
             Value::Optional(_) => Err(InterpreterError {
                 message: NULLABLE_VALUE_OPERATION_ERROR_MESSAGE.to_owned(),
-                expression: Expression::Binary(binary.clone()),
+                statement: Statement::Expression(Expression::Binary(binary.clone())),
             }),
         }
     }
@@ -224,7 +214,7 @@ impl<'a> Interpreter<'a> {
         environment: &mut Environment,
         decl: &VariableDeclaration,
     ) -> Result<(), InterpreterError> {
-        environment.values.insert(
+        let result = environment.values.insert(
             decl.identifier.lexeme.to_owned(),
             match decl.initializer {
                 Some(ref initializer) => match initializer {
@@ -240,6 +230,16 @@ impl<'a> Interpreter<'a> {
             },
         );
 
+        if result.is_some() {
+            return Err(InterpreterError {
+                statement: Statement::VariableDeclaration(decl.to_owned()),
+                message: format!(
+                    "Variable '{}' already declared in this scope",
+                    decl.identifier.lexeme
+                ),
+            });
+        }
+
         return Ok(());
     }
 
@@ -252,7 +252,7 @@ impl<'a> Interpreter<'a> {
             None => match environment.parent {
                 Some(ref parent) => Interpreter::variable_expression(parent, variable),
                 None => Err(InterpreterError {
-                    expression: Expression::Variable(variable.clone()),
+                    statement: Statement::Expression(Expression::Variable(variable.clone())),
                     message: format!(
                         "Variable '{}' not found in the current scope",
                         variable.value.lexeme
