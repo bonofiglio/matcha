@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use crate::token::Token;
 
 fn generate_left_pad(depth: usize) -> String {
@@ -14,18 +12,30 @@ fn generate_left_pad(depth: usize) -> String {
 pub enum Statement {
     Expression(Expression),
     VariableDeclaration(VariableDeclaration),
+    Block(Vec<Statement>),
 }
 
-impl Display for Statement {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return writeln!(
-            f,
-            "{}",
-            match self {
-                Statement::Expression(ex) => ex.format(0),
-                Statement::VariableDeclaration(declaration) => declaration.format(0),
+impl Statement {
+    pub fn format(&self, depth: usize) -> String {
+        let result = match self {
+            Statement::Expression(ex) => ex.format(depth),
+            Statement::VariableDeclaration(declaration) => declaration.format(depth),
+            Statement::Block(block) => {
+                let left_pad = generate_left_pad(depth);
+                let mut output: String = block
+                    .iter()
+                    .map(|statement| format!("{}\n", statement.format(depth + 1)))
+                    .collect();
+
+                // Remove trailing '\n' from the last iteration
+                output.pop();
+                output.pop();
+
+                format!("{}BLOCK\n{}", left_pad, output)
             }
-        );
+        };
+
+        return format!("{}", result);
     }
 }
 
@@ -112,11 +122,7 @@ impl GroupingExpression {
     fn format(&self, depth: usize) -> String {
         let left_pad = generate_left_pad(depth);
 
-        return format!(
-            "{0}(\n{1}\n{0})",
-            left_pad,
-            self.expression.format(depth + 1)
-        );
+        return format!("{0}GROUP\n{1}", left_pad, self.expression.format(depth + 1));
     }
 }
 

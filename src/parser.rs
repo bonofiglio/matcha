@@ -7,6 +7,7 @@ use crate::{
     },
     token::{Token, TokenType},
 };
+
 #[derive(Debug)]
 pub struct ParserError {
     pub message: String,
@@ -97,6 +98,10 @@ impl Parser {
             return self.variable_declaration();
         }
 
+        if self.match_token_types(&[&TokenType::LeftBrace]) {
+            return Ok(Statement::Block(self.block()?));
+        }
+
         return self.expression_statement();
     }
 
@@ -123,10 +128,6 @@ impl Parser {
 
     fn expression_statement(&mut self) -> Result<Statement, ParserError> {
         let expr = self.expression()?;
-
-        if self.is_end() {
-            return Ok(Statement::Expression(expr));
-        }
 
         let _ = self.consume_token(TokenType::SemiColon, "Expected ';'".to_owned())?;
 
@@ -324,5 +325,17 @@ impl Parser {
         }
 
         return Err(ParserError::new(error_message, previous.clone()));
+    }
+
+    fn block(&mut self) -> Result<Vec<Statement>, ParserError> {
+        let mut statements = Vec::<Statement>::new();
+
+        while !self.check(&TokenType::RightBrace) && !self.is_end() {
+            statements.push(self.statement()?);
+        }
+
+        let _ = self.consume_token(TokenType::RightBrace, "Expected '}' after block".to_owned())?;
+
+        return Ok(statements);
     }
 }

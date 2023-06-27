@@ -2,20 +2,20 @@ use std::collections::HashMap;
 
 use crate::matcha::Value;
 
-pub struct Environment {
+pub struct Environment<'a> {
     pub values: HashMap<String, Value>,
-    pub parent: Option<Box<Environment>>,
+    pub parent: Option<&'a Environment<'a>>,
 }
 
-impl Environment {
-    pub fn new() -> Environment {
+impl<'a> Environment<'a> {
+    pub fn new() -> Environment<'a> {
         return Environment {
             values: HashMap::new(),
             parent: None,
         };
     }
 
-    pub fn with_parent(parent: Box<Environment>) -> Environment {
+    pub fn with_parent(parent: &'a Environment) -> Environment<'a> {
         return Environment {
             values: HashMap::new(),
             parent: Some(parent),

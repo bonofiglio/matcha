@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
     environment::Environment,
     matcha::{Literal, NumberLiteral, Value},
@@ -19,28 +21,28 @@ pub struct InterpreterError {
     pub expression: Expression,
 }
 
-pub struct Interpreter {
-    environment: Environment,
+pub struct Interpreter<'a> {
+    environment: Environment<'a>,
 }
 
-impl Interpreter {
-    pub fn new() -> Interpreter {
+impl<'a> Interpreter<'a> {
+    pub fn new() -> Interpreter<'a> {
         return Interpreter {
             environment: Environment::new(),
         };
     }
 
-    pub fn interpret(&mut self, statements: Vec<Statement>) -> Result<Value, InterpreterError> {
+    pub fn interpret(
+        environment: &mut Environment,
+        statements: &Vec<Statement>,
+    ) -> Result<Value, InterpreterError> {
         for i in 0..statements.len() {
             // Return last value
             if i == statements.len() - 1 {
-                return Ok(Interpreter::evaluate(
-                    &mut self.environment,
-                    &statements[i],
-                )?);
+                return Ok(Interpreter::evaluate(environment, &statements[i])?);
             }
 
-            Interpreter::evaluate(&mut self.environment, &statements[i])?;
+            Interpreter::evaluate(environment, &statements[i])?;
         }
 
         return Ok(Value::Empty);
@@ -56,6 +58,7 @@ impl Interpreter {
                 return Ok(Value::Empty);
             }
             Statement::Expression(expression) => Interpreter::expression(environment, expression),
+            Statement::Block(block) => Interpreter::block(environment, block),
         };
     }
 
@@ -76,12 +79,14 @@ impl Interpreter {
 
     fn literal(literal: &LiteralExpression) -> Result<Value, InterpreterError> {
         let value = &literal.value.literal;
-        assert!(
-            value.is_some(),
-            "Literal expression value is None. This should never be the case."
-        );
-
-        return Ok(Value::Literal(value.clone().unwrap()));
+        return match value {
+            Some(value) => Ok(Value::Literal(value.clone())),
+            None => Err(InterpreterError {
+                message: "Literal expression value is None. This should never be the case."
+                    .to_owned(),
+                expression: Expression::Literal(literal.clone()),
+            }),
+        };
     }
 
     fn grouping(
@@ -255,5 +260,14 @@ impl Interpreter {
                 }),
             },
         };
+    }
+
+    fn block(
+        environment: &mut Environment,
+        statements: &Vec<Statement>,
+    ) -> Result<Value, InterpreterError> {
+        let mut inner_environment = Environment::with_parent(environment);
+
+        return Interpreter::interpret(&mut inner_environment, statements);
     }
 }

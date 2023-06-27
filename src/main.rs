@@ -12,6 +12,8 @@ use std::io;
 use std::io::Write;
 use std::println;
 
+use environment::Environment;
+
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
@@ -60,9 +62,9 @@ fn main() {
 
 fn run_file(options: &Options, path: &str) {
     let contents = fs::read_to_string(path).unwrap();
-    let mut interpreter = Interpreter::new();
+    let mut environment = Environment::new();
 
-    let exit_code = run(options, &contents, &mut interpreter);
+    let exit_code = run(options, &contents, &mut environment);
 
     if exit_code != 0 {
         std::process::exit(1);
@@ -73,21 +75,21 @@ fn repl(options: &Options) {
     let mut line = String::new();
     println!("Matcha 🍵 {}", env!("CARGO_PKG_VERSION"));
 
-    let mut interpreter = Interpreter::new();
+    let mut environment = Environment::new();
 
     loop {
         print!(">>> ");
         io::stdout().flush().unwrap();
         io::stdin().read_line(&mut line).unwrap();
         if line.len() > 0 {
-            run(options, &line, &mut interpreter);
+            run(options, &line, &mut environment);
         }
 
         line.clear();
     }
 }
 
-fn run(options: &Options, program: &str, interpreter: &mut Interpreter) -> u8 {
+fn run(options: &Options, program: &str, environment: &mut Environment) -> u8 {
     let tokens_result = Scanner::scan(program);
 
     match tokens_result {
@@ -103,11 +105,11 @@ fn run(options: &Options, program: &str, interpreter: &mut Interpreter) -> u8 {
                 Ok(statements) => {
                     if options.ast {
                         for statement in &statements {
-                            println!("{}", statement);
+                            println!("{}", statement.format(0));
                         }
                     }
 
-                    let interpreter_result = interpreter.interpret(statements);
+                    let interpreter_result = Interpreter::interpret(environment, &statements);
 
                     match interpreter_result {
                         Ok(result) => println!("{}", result),
