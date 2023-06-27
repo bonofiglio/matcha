@@ -4,14 +4,16 @@ HAS_ISSUES=0
 FIRST_FILE=1
 
 for file in $(git diff --name-only --staged); do
-    FMT_RESULT="$(rustfmt --unstable-features --skip-children $file)"
-    if [ "$FMT_RESULT" != "" ]; then
-        if [ $FIRST_FILE -eq 0 ]; then
-            echo -n ", "
-        fi  
-        echo -n "$file"
-        HAS_ISSUES=1
-        FIRST_FILE=0
+    if [[ $file == *.rs ]]; then
+        FMT_RESULT="$(rustfmt --unstable-features --skip-children $file)"
+        if [ "$FMT_RESULT" != "" ]; then
+            if [ $FIRST_FILE -eq 0 ]; then
+                echo -n ", "
+            fi  
+            echo -n "$file"
+            HAS_ISSUES=1
+            FIRST_FILE=0
+        fi
     fi
 done
 
