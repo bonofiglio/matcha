@@ -4,6 +4,7 @@ use crate::{
     statement::{
         AssignmentExpression, BinaryExpression, Expression, GroupingExpression, IfStatement,
         LiteralExpression, Statement, UnaryExpression, VariableDeclaration, VariableExpression,
+        WhileStatement,
     },
     token::{Token, TokenType},
 };
@@ -96,6 +97,10 @@ impl Parser {
     fn statement(&mut self) -> Result<Statement, ParserError> {
         if self.match_token_types(&[&TokenType::If]) {
             return self.if_statement();
+        }
+
+        if self.match_token_types(&[&TokenType::While]) {
+            return self.while_statement();
         }
 
         if self.match_token_types(&[&TokenType::Let]) {
@@ -395,6 +400,22 @@ impl Parser {
             condition,
             statements,
             else_statements,
+        }));
+    }
+
+    fn while_statement(&mut self) -> Result<Statement, ParserError> {
+        let condition = self.expression()?;
+
+        let _ = self.consume_token(
+            TokenType::LeftBrace,
+            "Expected '{{' after condition".to_owned(),
+        )?;
+
+        let statements = self.block()?;
+
+        return Ok(Statement::While(WhileStatement {
+            condition,
+            statements,
         }));
     }
 }

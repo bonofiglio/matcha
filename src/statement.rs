@@ -14,6 +14,7 @@ pub enum Statement {
     VariableDeclaration(VariableDeclaration),
     Block(Vec<Statement>),
     If(IfStatement),
+    While(WhileStatement),
 }
 
 impl Statement {
@@ -39,6 +40,17 @@ impl Statement {
                 format!(
                     "{0}IF_STMT\n{1}CONDITION\n{2}\n{1}THEN\n{3}{4}",
                     left_pad, children_left_pad, condition, statements, else_block
+                )
+            }
+            Statement::While(while_statement) => {
+                let left_pad = generate_left_pad(depth);
+                let children_left_pad = generate_left_pad(depth + 1);
+                let condition = while_statement.condition.format(depth + 2);
+                let statements = Statement::format_block(&while_statement.statements, depth + 2);
+
+                format!(
+                    "{0}WHILE_STMT\n{1}CONDITION\n{2}\n{1}THEN\n{3}",
+                    left_pad, children_left_pad, condition, statements
                 )
             }
         };
@@ -212,4 +224,10 @@ pub struct IfStatement {
     pub condition: Expression,
     pub statements: Vec<Statement>,
     pub else_statements: Option<Vec<Statement>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WhileStatement {
+    pub condition: Expression,
+    pub statements: Vec<Statement>,
 }

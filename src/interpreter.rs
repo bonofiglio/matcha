@@ -6,6 +6,7 @@ use crate::{
     statement::{
         AssignmentExpression, BinaryExpression, Expression, GroupingExpression, IfStatement,
         LiteralExpression, Statement, UnaryExpression, VariableDeclaration, VariableExpression,
+        WhileStatement,
     },
     token::TokenType,
 };
@@ -52,6 +53,9 @@ impl Interpreter {
             Statement::Expression(expression) => Interpreter::expression(environment, expression),
             Statement::Block(block) => Interpreter::block(environment, block),
             Statement::If(if_statement) => Interpreter::if_statement(environment, if_statement),
+            Statement::While(while_statement) => {
+                Interpreter::while_statement(environment, while_statement)
+            }
         };
     }
 
@@ -443,6 +447,38 @@ impl Interpreter {
                     })
                 }
             },
+        }
+    }
+
+    fn while_statement(
+        environment: Rc<RefCell<Environment>>,
+        while_statement: &WhileStatement,
+    ) -> Result<Value, InterpreterError> {
+        while match Interpreter::unwrap_bool(Interpreter::expression(
+            Rc::clone(&environment),
+            &while_statement.condition,
+        )?) {
+            Ok(boolean) => Ok(boolean),
+            Err(message) => Err(InterpreterError {
+                message,
+                statement: Statement::While(while_statement.clone()),
+            }),
+        }? {
+            Interpreter::block(Rc::clone(&environment), &while_statement.statements)?;
+        }
+
+        return Ok(Value::Empty);
+    }
+
+    fn unwrap_bool(value: Value) -> Result<bool, String> {
+        match value {
+            Value::Literal(literal) => match literal {
+                Literal::Boolean(boolean) => Ok(boolean),
+                Literal::Number(_) => Err("Expected boolean, got number".to_owned()),
+                Literal::String(_) => Err("Expected number, got string".to_owned()),
+            },
+            Value::Empty => Err(EMPTY_VALUE_OPERATION_ERROR_MESSAGE.to_owned()),
+            Value::Optional(_) => Err(NULLABLE_VALUE_OPERATION_ERROR_MESSAGE.to_owned()),
         }
     }
 }
