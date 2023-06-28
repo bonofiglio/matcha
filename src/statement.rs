@@ -1,4 +1,4 @@
-use crate::{matcha::Value, token::Token};
+use crate::token::Token;
 
 fn generate_left_pad(depth: usize) -> String {
     return if depth > 0 {
