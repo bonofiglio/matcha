@@ -65,7 +65,10 @@ impl Interpreter {
             Expression::Grouping(grouping) => Interpreter::grouping(environment, grouping),
             Expression::Binary(binary) => Interpreter::binary(environment, binary),
             Expression::Variable(variable) => {
-                Interpreter::variable_expression(&environment.borrow(), variable)
+                let borrow = environment.borrow();
+                let result = Interpreter::variable_expression(&borrow, variable)?;
+
+                return Ok(result);
             }
             Expression::Assignment(assignment) => Interpreter::assign(environment, assignment),
         };
@@ -358,7 +361,7 @@ impl Interpreter {
         environment: Rc<RefCell<Environment>>,
         statements: &Vec<Statement>,
     ) -> Result<Value, InterpreterError> {
-        let mut inner_environment = Rc::new(RefCell::new(Environment::with_parent(environment)));
+        let inner_environment = Rc::new(RefCell::new(Environment::with_parent(environment)));
 
         return Interpreter::interpret(inner_environment, statements);
     }
@@ -407,14 +410,20 @@ impl Interpreter {
         environment: Rc<RefCell<Environment>>,
         assignment: &AssignmentExpression,
     ) -> Result<Value, InterpreterError> {
-        let mut env_borrow = environment.borrow_mut();
+        let env_borrow = environment.borrow();
         let current_value = env_borrow.values.get(&assignment.name.lexeme);
 
         match current_value {
             Some(_) => {
+                drop(env_borrow);
+
                 let new_value =
                     Interpreter::expression(Rc::clone(&environment), &assignment.value)?;
-                let prev = env_borrow.values.get_mut(&assignment.name.lexeme).unwrap();
+                let mut env_borrow_mut = environment.borrow_mut();
+                let prev = env_borrow_mut
+                    .values
+                    .get_mut(&assignment.name.lexeme)
+                    .unwrap();
 
                 *prev = new_value;
 
