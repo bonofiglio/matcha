@@ -75,6 +75,7 @@ impl Interpreter {
                 return Ok(result);
             }
             Expression::Assignment(assignment) => Interpreter::assign(environment, assignment),
+            Expression::Logical(logical) => Interpreter::logical(environment, logical),
         };
     }
 
@@ -479,6 +480,81 @@ impl Interpreter {
             },
             Value::Empty => Err(EMPTY_VALUE_OPERATION_ERROR_MESSAGE.to_owned()),
             Value::Optional(_) => Err(NULLABLE_VALUE_OPERATION_ERROR_MESSAGE.to_owned()),
+        }
+    }
+
+    fn logical(
+        environment: Rc<RefCell<Environment>>,
+        logical: &BinaryExpression,
+    ) -> Result<Value, InterpreterError> {
+        match logical.operator.token_type {
+            TokenType::Or => {
+                let left_result = Interpreter::unwrap_bool(Interpreter::expression(
+                    Rc::clone(&environment),
+                    &logical.left,
+                )?);
+
+                let left_value = match left_result {
+                    Ok(boolean) => Ok(boolean),
+                    Err(message) => Err(InterpreterError {
+                        message,
+                        statement: Statement::Expression(Expression::Logical(logical.clone())),
+                    }),
+                }?;
+
+                if left_value == true {
+                    return Ok(Value::Literal(Literal::Boolean(true)));
+                } else {
+                    let right_result = Interpreter::unwrap_bool(Interpreter::expression(
+                        Rc::clone(&environment),
+                        &logical.right,
+                    )?);
+
+                    let right_value = match right_result {
+                        Ok(boolean) => Ok(boolean),
+                        Err(message) => Err(InterpreterError {
+                            message,
+                            statement: Statement::Expression(Expression::Logical(logical.clone())),
+                        }),
+                    }?;
+
+                    return Ok(Value::Literal(Literal::Boolean(right_value)));
+                }
+            }
+            TokenType::And => {
+                let left_result = Interpreter::unwrap_bool(Interpreter::expression(
+                    Rc::clone(&environment),
+                    &logical.left,
+                )?);
+
+                let left_value = match left_result {
+                    Ok(boolean) => Ok(boolean),
+                    Err(message) => Err(InterpreterError {
+                        message,
+                        statement: Statement::Expression(Expression::Logical(logical.clone())),
+                    }),
+                }?;
+
+                if left_value == false {
+                    return Ok(Value::Literal(Literal::Boolean(false)));
+                } else {
+                    let right_result = Interpreter::unwrap_bool(Interpreter::expression(
+                        Rc::clone(&environment),
+                        &logical.right,
+                    )?);
+
+                    let right_value = match right_result {
+                        Ok(boolean) => Ok(boolean),
+                        Err(message) => Err(InterpreterError {
+                            message,
+                            statement: Statement::Expression(Expression::Logical(logical.clone())),
+                        }),
+                    }?;
+
+                    return Ok(Value::Literal(Literal::Boolean(left_value && right_value)));
+                }
+            }
+            _ => todo!(),
         }
     }
 }

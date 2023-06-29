@@ -81,6 +81,7 @@ pub enum Expression {
     Grouping(GroupingExpression),
     Variable(VariableExpression),
     Assignment(AssignmentExpression),
+    Logical(BinaryExpression),
 }
 
 impl Expression {
@@ -92,6 +93,7 @@ impl Expression {
             Expression::Grouping(ex) => ex.format(depth),
             Expression::Variable(ex) => ex.format(depth),
             Expression::Assignment(ex) => ex.format(depth),
+            Expression::Logical(ex) => ex.format(depth),
         };
     }
 }
