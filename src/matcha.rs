@@ -2,13 +2,12 @@ use std::{
     collections::HashMap,
     fmt::Display,
     ops::{Add, Div, Mul, Sub},
+    sync::LazyLock,
 };
-
-use once_cell::sync::Lazy;
 
 use crate::token::TokenType;
 
-pub static KEYWORDS: Lazy<HashMap<&str, TokenType>> = Lazy::new(|| {
+pub static KEYWORDS: LazyLock<HashMap<&str, TokenType>> = LazyLock::new(|| {
     HashMap::from([
         ("struct", TokenType::Struct),
         ("else", TokenType::Else),
@@ -26,7 +25,7 @@ pub static KEYWORDS: Lazy<HashMap<&str, TokenType>> = Lazy::new(|| {
     ])
 });
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Literal {
     String(String),
     Number(NumberLiteral),
