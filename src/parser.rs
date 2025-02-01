@@ -2,9 +2,9 @@ use std::fmt::Display;
 
 use crate::{
     statement::{
-        AssignmentExpression, BinaryExpression, Expression, GroupingExpression, IfStatement,
-        LiteralExpression, Statement, UnaryExpression, VariableDeclaration, VariableExpression,
-        WhileStatement,
+        AssignmentExpression, BinaryExpression, Expression, ForStatement, GroupingExpression,
+        IfStatement, LiteralExpression, Statement, UnaryExpression, VariableDeclaration,
+        VariableExpression,
     },
     token::{Token, TokenType},
 };
@@ -78,14 +78,7 @@ impl<'a> Parser<'a> {
         while !self.is_end() {
             // Skip any tokens that are not one of the specified
             match self.previous().token_type {
-                TokenType::SemiColon
-                | TokenType::For
-                | TokenType::While
-                | TokenType::Struct
-                | TokenType::Func
-                | TokenType::Let
-                | TokenType::If
-                | TokenType::Return => {
+                TokenType::SemiColon | TokenType::For | TokenType::If => {
                     return;
                 }
                 _ => {
@@ -97,19 +90,23 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn statement<'b>(&'b mut self) -> Result<Statement<'a>, ParserError<'a>> {
-        if self.match_token_types(&[&TokenType::If]) {
+        if self.consumed_one_of([TokenType::If]) {
             return self.if_statement();
         }
 
-        if self.match_token_types(&[&TokenType::While]) {
+        if self.consumed_one_of([TokenType::For]) {
             return self.while_statement();
         }
 
-        if self.match_token_types(&[&TokenType::Let]) {
-            return self.variable_declaration();
+        match self.lookahead_many::<4>().map(|t| t.map(|t| t.token_type)) {
+            [Some(TokenType::Identifier), Some(TokenType::Colon), Some(TokenType::Identifier), Some(TokenType::Equal)]
+            | [Some(TokenType::Identifier), Some(TokenType::VarDec), ..] => {
+                return self.variable_declaration()
+            }
+            _ => {}
         }
 
-        if self.match_token_types(&[&TokenType::LeftBrace]) {
+        if self.consumed_one_of([TokenType::LeftBrace]) {
             return Ok(Statement::Block(self.block()?));
         }
 
@@ -117,32 +114,10 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    fn variable_declaration<'b>(&'b mut self) -> Result<Statement<'a>, ParserError<'a>> {
-        let identifier = self
-            .consume_token(TokenType::Identifier, "Expected identifier".to_owned())?
-            .clone();
-
-        let initializer = if self.match_token_types(&[&TokenType::Equal]) {
-            Some(self.expression()?)
-        } else {
-            None
-        };
-
-        let declaration = Statement::VariableDeclaration(VariableDeclaration {
-            identifier,
-            initializer,
-        });
-
-        let _ = self.consume_token(TokenType::SemiColon, "Expected ';'".to_owned())?;
-
-        Ok(declaration)
-    }
-
-    #[inline]
     fn expression_statement<'b>(&'b mut self) -> Result<Statement<'a>, ParserError<'a>> {
         let expr = self.expression()?;
 
-        let _ = self.consume_token(TokenType::SemiColon, "Expected ';'".to_owned())?;
+        let _ = self.consume_and_expect(TokenType::SemiColon, "Expected ';'".to_owned())?;
 
         Ok(Statement::Expression(expr))
     }
@@ -153,17 +128,55 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
+    fn variable_declaration<'b>(&'b mut self) -> Result<Statement<'a>, ParserError<'a>> {
+        let identifier = self
+            .consume_and_expect(TokenType::Identifier, "Expected identifier".to_owned())?
+            .clone();
+
+        let r#type = if self.consumed_one_of([TokenType::Colon]) {
+            Some(self.variable_declaration_type()?)
+        } else {
+            None
+        };
+
+        let initializer = if self.consumed_one_of([TokenType::VarDec, TokenType::Equal]) {
+            self.expression()?
+        } else {
+            unreachable!()
+        };
+
+        let declaration = Statement::VariableDeclaration(VariableDeclaration {
+            identifier,
+            initializer,
+            r#type,
+        });
+
+        let _ = self.consume_and_expect(TokenType::SemiColon, "Expected ';'".to_owned())?;
+
+        Ok(declaration)
+    }
+
+    #[inline(always)]
+    fn variable_declaration_type(&mut self) -> Result<Token<'a>, ParserError<'a>> {
+        let identifier = self
+            .consume_and_expect(TokenType::Identifier, "Expected type identifier".to_owned())?
+            .clone();
+
+        Ok(identifier)
+    }
+
+    #[inline]
     fn assignment<'b>(&'b mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let expr = self.or()?;
 
-        if self.match_token_types(&[&TokenType::Equal]) {
+        if self.consumed_one_of([TokenType::Equal]) {
             let equals = self.previous();
 
             match expr {
                 Expression::Variable(variable) => {
                     return Ok(Expression::Assignment(AssignmentExpression {
                         value: Box::new(self.assignment()?),
-                        name: variable.value,
+                        identifier: variable.value,
                     }))
                 }
                 _ => {
@@ -182,7 +195,7 @@ impl<'a> Parser<'a> {
     fn or<'b>(&'b mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let mut expr = self.and()?;
 
-        while self.match_token_types(&[&TokenType::Or]) {
+        while self.consumed_one_of([TokenType::Or]) {
             let operator = self.previous().clone();
             let right = self.and()?;
 
@@ -200,7 +213,7 @@ impl<'a> Parser<'a> {
     fn and<'b>(&'b mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let mut expr = self.equality()?;
 
-        while self.match_token_types(&[&TokenType::And]) {
+        while self.consumed_one_of([TokenType::And]) {
             let operator = self.previous().clone();
             let right = self.equality()?;
 
@@ -218,9 +231,9 @@ impl<'a> Parser<'a> {
     fn equality(&mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let mut expr = self.comparison()?;
 
-        self.check(&TokenType::Equal);
+        self.next_matches(TokenType::Equal);
 
-        while self.match_token_types(&[&TokenType::DoubleEqual, &TokenType::BangEqual]) {
+        while self.consumed_one_of([TokenType::DoubleEqual, TokenType::BangEqual]) {
             let operator = self.previous().clone();
             let right = Box::new(self.comparison()?);
 
@@ -238,11 +251,11 @@ impl<'a> Parser<'a> {
     fn comparison(&mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let mut expr = self.term()?;
 
-        while self.match_token_types(&[
-            &TokenType::Greater,
-            &TokenType::GreaterEqual,
-            &TokenType::Less,
-            &TokenType::LessEqual,
+        while self.consumed_one_of([
+            TokenType::Greater,
+            TokenType::GreaterEqual,
+            TokenType::Less,
+            TokenType::LessEqual,
         ]) {
             let operator = self.previous().clone();
             let right = self.term()?;
@@ -261,7 +274,7 @@ impl<'a> Parser<'a> {
     fn term(&mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let mut expr = self.factor()?;
 
-        while self.match_token_types(&[&TokenType::Minus, &TokenType::Plus]) {
+        while self.consumed_one_of([TokenType::Minus, TokenType::Plus]) {
             let operator = self.previous().clone();
             let right = self.factor()?;
 
@@ -279,7 +292,7 @@ impl<'a> Parser<'a> {
     fn factor(&mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let mut expr = self.unary()?;
 
-        while self.match_token_types(&[&TokenType::Slash, &TokenType::Star]) {
+        while self.consumed_one_of([TokenType::Slash, TokenType::Star]) {
             let operator = self.previous().clone();
             let right = self.unary()?;
 
@@ -295,7 +308,7 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn unary(&mut self) -> Result<Expression<'a>, ParserError<'a>> {
-        if self.match_token_types(&[&TokenType::Bang, &TokenType::Minus]) {
+        if self.consumed_one_of([TokenType::Bang, TokenType::Minus]) {
             let operator = self.previous().clone();
 
             return Ok(Expression::Unary(UnaryExpression {
@@ -309,13 +322,12 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn primary<'b>(&'b mut self) -> Result<Expression<'a>, ParserError<'a>> {
-        if self.match_token_types(&[
-            &TokenType::False,
-            &TokenType::True,
-            &TokenType::Nil,
-            &TokenType::String,
-            &TokenType::Integer,
-            &TokenType::Float,
+        if self.consumed_one_of([
+            TokenType::False,
+            TokenType::True,
+            TokenType::String,
+            TokenType::Integer,
+            TokenType::Float,
         ]) {
             let value = self.previous();
             return Ok(Expression::Literal(LiteralExpression {
@@ -330,9 +342,9 @@ impl<'a> Parser<'a> {
             }));
         }
 
-        if self.match_token_types(&[&TokenType::LeftParen]) {
+        if self.consumed_one_of([TokenType::LeftParen]) {
             let expression = self.expression()?;
-            if !self.check(&TokenType::RightParen) {
+            if !self.next_matches(TokenType::RightParen) {
                 let token = self.next();
                 return Err(ParserError::new(
                     format!("Expected ')' after expression. Got: {}", token.lexeme),
@@ -356,77 +368,15 @@ impl<'a> Parser<'a> {
     }
 
     #[inline]
-    fn is_end(&self) -> bool {
-        std::mem::discriminant(&self.next().token_type)
-            == std::mem::discriminant(&TokenType::Eof)
-    }
-
-    #[inline]
-    fn next<'b>(&'b self) -> &'b Token<'a> {
-        &self.tokens[self.current_index]
-    }
-
-    #[inline]
-    fn previous<'b>(&'b self) -> &'b Token<'a> {
-        &self.tokens[self.current_index - 1]
-    }
-
-    #[inline]
-    fn check(&self, token_type: &TokenType) -> bool {
-        if self.is_end() {
-            return false;
-        }
-
-        std::mem::discriminant(token_type)
-            == std::mem::discriminant(&self.next().token_type)
-    }
-
-    #[inline]
-    fn advance<'b>(&'b mut self) -> &'b Token<'a> {
-        if !self.is_end() {
-            self.current_index += 1;
-        }
-
-        self.previous()
-    }
-
-    #[inline]
-    fn match_token_types(&mut self, types: &[&TokenType]) -> bool {
-        for token_type in types {
-            if self.check(token_type) {
-                self.advance();
-                return true;
-            }
-        }
-
-        false
-    }
-
-    #[inline]
-    fn consume_token<'b>(
-        &'b mut self,
-        token_type: TokenType,
-        error_message: String,
-    ) -> Result<&'b Token<'a>, ParserError<'a>> {
-        self.advance();
-        let previous = self.previous();
-
-        if previous.token_type == token_type {
-            return Ok(previous);
-        }
-
-        Err(ParserError::new(error_message, previous.clone()))
-    }
-
-    #[inline]
     fn block<'b>(&'b mut self) -> Result<Vec<Statement<'a>>, ParserError<'a>> {
         let mut statements = Vec::<Statement>::new();
 
-        while !self.check(&TokenType::RightBrace) && !self.is_end() {
+        while !self.next_matches(TokenType::RightBrace) && !self.is_end() {
             statements.push(self.statement()?);
         }
 
-        let _ = self.consume_token(TokenType::RightBrace, "Expected '}' after block".to_owned())?;
+        let _ =
+            self.consume_and_expect(TokenType::RightBrace, "Expected '}' after block".to_owned())?;
 
         Ok(statements)
     }
@@ -435,15 +385,15 @@ impl<'a> Parser<'a> {
     fn if_statement<'b>(&'b mut self) -> Result<Statement<'a>, ParserError<'a>> {
         let condition = self.expression()?;
 
-        let _ = self.consume_token(
+        let _ = self.consume_and_expect(
             TokenType::LeftBrace,
             "Expected '{{' after condition".to_owned(),
         )?;
 
         let statements = self.block()?;
 
-        let else_statements = if self.match_token_types(&[&TokenType::Else]) {
-            let _ = self.consume_token(
+        let else_statements = if self.consumed_one_of([TokenType::Else]) {
+            let _ = self.consume_and_expect(
                 TokenType::LeftBrace,
                 "Expected '{{' after condition".to_owned(),
             )?;
@@ -464,16 +414,112 @@ impl<'a> Parser<'a> {
     fn while_statement<'b>(&'b mut self) -> Result<Statement<'a>, ParserError<'a>> {
         let condition = self.expression()?;
 
-        let _ = self.consume_token(
+        let _ = self.consume_and_expect(
             TokenType::LeftBrace,
             "Expected '{{' after condition".to_owned(),
         )?;
 
         let statements = self.block()?;
 
-        Ok(Statement::While(WhileStatement {
+        Ok(Statement::For(ForStatement {
             condition,
             statements,
         }))
+    }
+
+    #[inline]
+    fn is_end(&self) -> bool {
+        self.next().token_type == TokenType::Eof
+    }
+
+    #[inline]
+    fn next<'b>(&'b self) -> &'b Token<'a> {
+        &self.tokens[self.current_index]
+    }
+
+    #[inline]
+    fn previous<'b>(&'b self) -> &'b Token<'a> {
+        &self.tokens[self.current_index - 1]
+    }
+
+    #[inline]
+    fn next_matches(&self, token_type: TokenType) -> bool {
+        if self.is_end() {
+            return false;
+        }
+
+        token_type == self.next().token_type
+    }
+
+    #[inline]
+    fn advance<'b>(&'b mut self) -> &'b Token<'a> {
+        if !self.is_end() {
+            self.current_index += 1;
+        }
+
+        self.previous()
+    }
+
+    #[inline]
+    fn consumed_one_of<const SIZE: usize>(&mut self, types: [TokenType; SIZE]) -> bool {
+        for token_type in types {
+            if self.next_matches(token_type) {
+                self.advance();
+                return true;
+            }
+        }
+
+        false
+    }
+
+    #[inline]
+    fn consume_and_expect<'b>(
+        &'b mut self,
+        token_type: TokenType,
+        error_message: String,
+    ) -> Result<&'b Token<'a>, ParserError<'a>> {
+        self.advance();
+        let previous = self.previous();
+
+        if previous.token_type == token_type {
+            return Ok(previous);
+        }
+
+        Err(ParserError::new(error_message, previous.clone()))
+    }
+
+    #[inline(always)]
+    fn lookahead(&self, amount: usize) -> Option<&Token<'a>> {
+        self.tokens.get(self.current_index + amount)
+    }
+
+    #[inline(always)]
+    fn lookahead_many<const AMOUNT: usize>(&self) -> [Option<&Token>; AMOUNT] {
+        let mut tokens = [None; AMOUNT];
+
+        for (i, token) in tokens.iter_mut().enumerate().take(AMOUNT) {
+            *token = self.lookahead(i);
+        }
+
+        tokens
+    }
+
+    #[inline(always)]
+    fn lookahead_matches_one_of<const SIZE: usize>(
+        &self,
+        amount: usize,
+        types: [TokenType; SIZE],
+    ) -> bool {
+        let Some(token) = self.lookahead(amount) else {
+            return false;
+        };
+
+        for token_type in types {
+            if token_type == token.token_type {
+                return true;
+            }
+        }
+
+        false
     }
 }

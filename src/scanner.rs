@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
-    matcha::{Literal, NumberLiteral, KEYWORDS},
+    matcha::KEYWORDS,
     source::Source,
     token::{Token, TokenType},
 };
@@ -69,7 +69,7 @@ impl<'a> Scanner<'a> {
             .is_some()
         {}
 
-        Scanner::add_token("", line, position, &mut tokens, TokenType::Eof, None);
+        Scanner::add_token("", line, position, &mut tokens, TokenType::Eof);
 
         Ok(tokens)
     }
@@ -83,9 +83,13 @@ impl<'a> Scanner<'a> {
         position: u64,
         tokens: &mut Vec<Token<'a>>,
         token_type: TokenType,
-        literal: Option<Literal<'a>>,
     ) {
-        tokens.push(Token::new(token_type, lexeme, line, position, literal));
+        tokens.push(Token::new(
+            token_type,
+            lexeme,
+            line,
+            position - lexeme.len() as u64 + 1,
+        ));
     }
 
     #[inline]
@@ -107,7 +111,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::LeftParen,
-                None,
             ),
             ')' => Scanner::add_token(
                 source.pop_lexeme(),
@@ -115,7 +118,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::RightParen,
-                None,
             ),
             '{' => Scanner::add_token(
                 source.pop_lexeme(),
@@ -123,7 +125,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::LeftBrace,
-                None,
             ),
             '}' => Scanner::add_token(
                 source.pop_lexeme(),
@@ -131,7 +132,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::RightBrace,
-                None,
             ),
             '[' => Scanner::add_token(
                 source.pop_lexeme(),
@@ -139,7 +139,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::LeftBracket,
-                None,
             ),
             ']' => Scanner::add_token(
                 source.pop_lexeme(),
@@ -147,7 +146,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::RightBracket,
-                None,
             ),
             ',' => Scanner::add_token(
                 source.pop_lexeme(),
@@ -155,7 +153,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::Comma,
-                None,
             ),
             '.' => Scanner::add_token(
                 source.pop_lexeme(),
@@ -163,7 +160,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::Dot,
-                None,
             ),
             '-' => Scanner::add_token(
                 source.pop_lexeme(),
@@ -171,7 +167,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::Minus,
-                None,
             ),
             '+' => Scanner::add_token(
                 source.pop_lexeme(),
@@ -179,7 +174,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::Plus,
-                None,
             ),
             ';' => Scanner::add_token(
                 source.pop_lexeme(),
@@ -187,7 +181,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::SemiColon,
-                None,
             ),
             '*' => Scanner::add_token(
                 source.pop_lexeme(),
@@ -195,7 +188,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::Star,
-                None,
             ),
 
             // Operators
@@ -207,7 +199,6 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::And,
-                        None,
                     )
                 } else {
                     Scanner::add_token(
@@ -216,20 +207,12 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::BitwiseAnd,
-                        None,
                     )
                 }
             }
             '|' => {
                 if Scanner::matches_next(source, position, '|') {
-                    Scanner::add_token(
-                        source.pop_lexeme(),
-                        *line,
-                        *position,
-                        tokens,
-                        TokenType::Or,
-                        None,
-                    )
+                    Scanner::add_token(source.pop_lexeme(), *line, *position, tokens, TokenType::Or)
                 } else {
                     Scanner::add_token(
                         source.pop_lexeme(),
@@ -237,7 +220,6 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::BitwiseOr,
-                        None,
                     )
                 }
             }
@@ -249,7 +231,6 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::BangEqual,
-                        None,
                     )
                 } else {
                     Scanner::add_token(
@@ -258,7 +239,25 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::Bang,
-                        None,
+                    )
+                }
+            }
+            ':' => {
+                if Scanner::matches_next(source, position, '=') {
+                    Scanner::add_token(
+                        source.pop_lexeme(),
+                        *line,
+                        *position,
+                        tokens,
+                        TokenType::VarDec,
+                    )
+                } else {
+                    Scanner::add_token(
+                        source.pop_lexeme(),
+                        *line,
+                        *position,
+                        tokens,
+                        TokenType::Colon,
                     )
                 }
             }
@@ -270,7 +269,6 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::DoubleEqual,
-                        None,
                     )
                 } else {
                     Scanner::add_token(
@@ -279,7 +277,6 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::Equal,
-                        None,
                     )
                 }
             }
@@ -291,7 +288,6 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::GreaterEqual,
-                        None,
                     )
                 } else if Scanner::matches_next(source, position, '>') {
                     Scanner::add_token(
@@ -300,7 +296,6 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::RightShift,
-                        None,
                     )
                 } else {
                     Scanner::add_token(
@@ -309,7 +304,6 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::Greater,
-                        None,
                     )
                 }
             }
@@ -321,7 +315,6 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::LessEqual,
-                        None,
                     )
                 } else if Scanner::matches_next(source, position, '<') {
                     Scanner::add_token(
@@ -330,7 +323,6 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::LeftShift,
-                        None,
                     )
                 } else {
                     Scanner::add_token(
@@ -339,7 +331,6 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::Less,
-                        None,
                     )
                 }
             }
@@ -349,7 +340,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::BitwiseXor,
-                None,
             ),
             '~' => Scanner::add_token(
                 source.pop_lexeme(),
@@ -357,7 +347,6 @@ impl<'a> Scanner<'a> {
                 *position,
                 tokens,
                 TokenType::BitwiseNot,
-                None,
             ),
             // Division operator and comments
             '/' => {
@@ -379,7 +368,6 @@ impl<'a> Scanner<'a> {
                         *position,
                         tokens,
                         TokenType::Slash,
-                        None,
                     );
                 };
             }
@@ -415,7 +403,7 @@ impl<'a> Scanner<'a> {
                     ScannerErrorType::UnknownToken,
                     *line,
                     *position,
-                ))
+                ));
             }
         };
 
@@ -488,14 +476,7 @@ impl<'a> Scanner<'a> {
 
         let value = &lexeme[1..(lexeme.len() - 1)];
 
-        Scanner::add_token(
-            lexeme,
-            *line,
-            *position,
-            tokens,
-            TokenType::String,
-            Some(Literal::String(value)),
-        );
+        Scanner::add_token(lexeme, *line, *position, tokens, TokenType::String);
         Ok(())
     }
 
@@ -537,42 +518,11 @@ impl<'a> Scanner<'a> {
         let lexeme = source.pop_lexeme();
 
         if is_float {
-            match lexeme.parse::<f64>() {
-                Err(_) => {
-                    return Err(ScannerError::new(
-                        ScannerErrorType::InvalidNumber,
-                        *line,
-                        *position,
-                    ));
-                }
-                Ok(value) => Scanner::add_token(
-                    lexeme,
-                    *line,
-                    *position,
-                    tokens,
-                    TokenType::Float,
-                    Some(Literal::Number(NumberLiteral::Float(value))),
-                ),
-            }
+            Scanner::add_token(lexeme, *line, *position, tokens, TokenType::Float)
         } else {
-            match lexeme.parse::<i32>() {
-                Err(_) => {
-                    return Err(ScannerError::new(
-                        ScannerErrorType::InvalidNumber,
-                        *line,
-                        *position,
-                    ));
-                }
-                Ok(value) => Scanner::add_token(
-                    lexeme,
-                    *line,
-                    *position,
-                    tokens,
-                    TokenType::Integer,
-                    Some(Literal::Number(NumberLiteral::Integer(value))),
-                ),
-            }
+            Scanner::add_token(lexeme, *line, *position, tokens, TokenType::Integer)
         }
+
         Ok(())
     }
 
@@ -583,7 +533,10 @@ impl<'a> Scanner<'a> {
         position: &mut u64,
         tokens: &mut Vec<Token<'a>>,
     ) {
-        while source.peek().is_some_and(|c| c.is_ascii_alphanumeric()) {
+        while source
+            .peek()
+            .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_')
+        {
             Scanner::advance(source, position);
         }
 
@@ -591,22 +544,9 @@ impl<'a> Scanner<'a> {
 
         // If the value is a known keyword, add the token and return early
         if let Some(keyword) = KEYWORDS.get(value) {
-            let literal = match keyword {
-                TokenType::True => Some(Literal::Boolean(true)),
-                TokenType::False => Some(Literal::Boolean(false)),
-                _ => None,
-            };
-
-            return Scanner::add_token(value, *line, *position, tokens, keyword.clone(), literal);
+            Scanner::add_token(value, *line, *position, tokens, *keyword)
+        } else {
+            Scanner::add_token(value, *line, *position, tokens, TokenType::Identifier)
         }
-
-        Scanner::add_token(
-            value,
-            *line,
-            *position,
-            tokens,
-            TokenType::Identifier,
-            Some(Literal::String(value)),
-        );
     }
 }

@@ -15,7 +15,7 @@ pub enum Statement<'a> {
     VariableDeclaration(VariableDeclaration<'a>),
     Block(Vec<Statement<'a>>),
     If(IfStatement<'a>),
-    While(WhileStatement<'a>),
+    For(ForStatement<'a>),
 }
 
 impl Statement<'_> {
@@ -43,11 +43,11 @@ impl Statement<'_> {
                     left_pad, children_left_pad, condition, statements, else_block
                 )
             }
-            Statement::While(while_statement) => {
+            Statement::For(for_statement) => {
                 let left_pad = generate_left_pad(depth);
                 let children_left_pad = generate_left_pad(depth + 1);
-                let condition = while_statement.condition.format(depth + 2);
-                let statements = Statement::format_block(&while_statement.statements, depth + 2);
+                let condition = for_statement.condition.format(depth + 2);
+                let statements = Statement::format_block(&for_statement.statements, depth + 2);
 
                 format!(
                     "{0}WHILE_STMT\n{1}CONDITION\n{2}\n{1}THEN\n{3}",
@@ -188,7 +188,8 @@ impl VariableExpression<'_> {
 #[derive(Debug, Clone)]
 pub struct VariableDeclaration<'a> {
     pub identifier: Token<'a>,
-    pub initializer: Option<Expression<'a>>,
+    pub initializer: Expression<'a>,
+    pub r#type: Option<Token<'a>>,
 }
 
 impl VariableDeclaration<'_> {
@@ -196,10 +197,7 @@ impl VariableDeclaration<'_> {
         let left_pad = generate_left_pad(depth);
         let children_left_pad = generate_left_pad(depth + 1);
 
-        let initializer_value = match self.initializer {
-            Some(ref initializer) => initializer.format(depth + 1),
-            None => format!("{}nil", children_left_pad),
-        };
+        let initializer_value = self.initializer.format(depth + 1);
 
         format!(
             "{0}VAR_DECL\n{1}{2}\n{3}",
@@ -211,7 +209,7 @@ impl VariableDeclaration<'_> {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
 pub struct AssignmentExpression<'a> {
-    pub name: Token<'a>,
+    pub identifier: Token<'a>,
     pub value: Box<Expression<'a>>,
 }
 
@@ -224,7 +222,7 @@ impl AssignmentExpression<'_> {
             "{0}VAR_ASSIGN\n{1}{2}\n{3}",
             left_pad,
             children_left_pad,
-            &self.name.lexeme,
+            &self.identifier.lexeme,
             self.value.format(depth + 1)
         )
     }
@@ -240,7 +238,7 @@ pub struct IfStatement<'a> {
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub struct WhileStatement<'a> {
+pub struct ForStatement<'a> {
     pub condition: Expression<'a>,
     pub statements: Vec<Statement<'a>>,
 }

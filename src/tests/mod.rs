@@ -1,1 +1,1 @@
-mod syntax;
+mod parser;

@@ -1,5 +1,5 @@
 mod environment;
-mod interpreter;
+// mod interpreter;
 mod matcha;
 mod parser;
 mod scanner;
@@ -23,7 +23,7 @@ use matcha::NumberLiteral;
 use matcha::Value;
 use source::Source;
 
-use crate::interpreter::Interpreter;
+// use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
 
@@ -198,18 +198,20 @@ pub fn run<'a>(
                         }
                     }
 
-                    let interpreter_result = Interpreter::interpret(environment, &statements);
+                    0
 
-                    match interpreter_result {
-                        Ok(result) => {
-                            println!("{}", result);
-                            0
-                        }
-                        Err(e) => {
-                            eprintln!("{:#?}", e);
-                            1
-                        }
-                    }
+                    // let interpreter_result = Interpreter::interpret(environment, &statements);
+
+                    // match interpreter_result {
+                    //     Ok(result) => {
+                    //         println!("{}", result);
+                    //         0
+                    //     }
+                    //     Err(e) => {
+                    //         eprintln!("{:#?}", e);
+                    //         1
+                    //     }
+                    // }
                 }
                 Err(errors) => {
                     for error in errors {

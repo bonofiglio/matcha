@@ -4,9 +4,9 @@ use crate::{
     environment::Environment,
     matcha::{Literal, NumberLiteral, Value},
     statement::{
-        AssignmentExpression, BinaryExpression, Expression, GroupingExpression, IfStatement,
-        LiteralExpression, Statement, UnaryExpression, VariableDeclaration, VariableExpression,
-        WhileStatement,
+        AssignmentExpression, BinaryExpression, Expression, ForStatement, GroupingExpression,
+        IfStatement, LiteralExpression, Statement, UnaryExpression, VariableDeclaration,
+        VariableExpression,
     },
     token::TokenType,
 };
@@ -24,7 +24,7 @@ pub struct InterpreterError<'a> {
 
 impl Display for InterpreterError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Runtime error: {}")
+        write!(f, "Runtime error at {}:{}. {}", self.statement)
     }
 }
 
@@ -426,7 +426,7 @@ impl<'a> Interpreter {
 
     fn while_statement<'b>(
         environment: Rc<RefCell<Environment<'a>>>,
-        while_statement: &'b WhileStatement<'a>,
+        while_statement: &'b ForStatement<'a>,
     ) -> Result<Value<'a>, InterpreterError<'a>> {
         while match Interpreter::unwrap_bool(Interpreter::expression(
             Rc::clone(&environment),

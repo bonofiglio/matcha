@@ -9,19 +9,11 @@ use crate::token::TokenType;
 
 pub static KEYWORDS: LazyLock<HashMap<&str, TokenType>> = LazyLock::new(|| {
     HashMap::from([
-        ("struct", TokenType::Struct),
-        ("else", TokenType::Else),
-        ("false", TokenType::False),
-        ("func", TokenType::Func),
-        ("for", TokenType::For),
         ("if", TokenType::If),
-        ("nil", TokenType::Nil),
-        ("return", TokenType::Return),
-        ("super", TokenType::Super),
-        ("this", TokenType::This),
+        ("else", TokenType::Else),
         ("true", TokenType::True),
-        ("let", TokenType::Let),
-        ("while", TokenType::While),
+        ("false", TokenType::False),
+        ("for", TokenType::For),
     ])
 });
 

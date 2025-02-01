@@ -1,6 +1,4 @@
-use crate::matcha::Literal;
-
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub enum TokenType {
     // Single character
     LeftParen,
@@ -13,6 +11,7 @@ pub enum TokenType {
     Dot,
     Minus,
     Plus,
+    Colon,
     SemiColon,
     Slash,
     Star,
@@ -34,6 +33,7 @@ pub enum TokenType {
     BitwiseXor,
     LeftShift,
     RightShift,
+    VarDec,
 
     // Literals
     Identifier,
@@ -42,21 +42,19 @@ pub enum TokenType {
     Float,
 
     // Reserved keywords
-    Struct,
-    Else,
-    False,
-    Func,
-    For,
     If,
-    Nil,
-    Return,
-    Super,
-    This,
+    Else,
     True,
-    Let,
-    While,
+    False,
+    For,
 
     Eof,
+}
+
+impl PartialEq for TokenType {
+    fn eq(&self, other: &Self) -> bool {
+        core::mem::discriminant(self) == core::mem::discriminant(other)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -65,7 +63,6 @@ pub struct Token<'a> {
     pub lexeme: &'a str,
     pub line: u64,
     pub position: u64,
-    pub literal: Option<Literal<'a>>,
 }
 
 impl<'a> Token<'a> {
@@ -75,14 +72,12 @@ impl<'a> Token<'a> {
         lexeme: &'a str,
         line: u64,
         position: u64,
-        literal: Option<Literal<'a>>,
     ) -> Token<'a> {
         Token {
             token_type,
             lexeme,
             line,
             position,
-            literal,
         }
     }
 }
