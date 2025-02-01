@@ -7,6 +7,8 @@ pub enum TokenType {
     RightParen,
     LeftBrace,
     RightBrace,
+    LeftBracket,
+    RightBracket,
     Comma,
     Dot,
     Minus,
@@ -57,23 +59,24 @@ pub enum TokenType {
     Eof,
 }
 
-#[derive(Debug, Clone)]
-pub struct Token {
+#[derive(Debug, Clone, PartialEq)]
+pub struct Token<'a> {
     pub token_type: TokenType,
-    pub lexeme: String,
+    pub lexeme: &'a str,
     pub line: u64,
     pub position: u64,
-    pub literal: Option<Literal>,
+    pub literal: Option<Literal<'a>>,
 }
 
-impl Token {
+impl<'a> Token<'a> {
+    #[inline]
     pub const fn new(
         token_type: TokenType,
-        lexeme: String,
+        lexeme: &'a str,
         line: u64,
         position: u64,
-        literal: Option<Literal>,
-    ) -> Token {
+        literal: Option<Literal<'a>>,
+    ) -> Token<'a> {
         Token {
             token_type,
             lexeme,

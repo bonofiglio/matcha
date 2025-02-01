@@ -10,18 +10,18 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct ParserError {
+pub struct ParserError<'a> {
     pub message: String,
-    pub token: Token,
+    pub token: Token<'a>,
 }
 
-impl ParserError {
+impl ParserError<'_> {
     pub fn new(message: String, token: Token) -> ParserError {
-        return ParserError { message, token };
+        ParserError { message, token }
     }
 }
 
-impl Display for ParserError {
+impl Display for ParserError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -31,24 +31,24 @@ impl Display for ParserError {
     }
 }
 
-pub struct Parser {
+pub struct Parser<'a> {
     current_index: usize,
-    tokens: Vec<Token>,
+    tokens: Vec<Token<'a>>,
 }
 
-impl Parser {
+impl<'a> Parser<'a> {
     pub fn new(tokens: Vec<Token>) -> Parser {
-        return Parser {
+        Parser {
             current_index: 0,
             tokens,
-        };
+        }
     }
 
-    pub fn parse(&mut self) -> Result<Vec<Statement>, Vec<ParserError>> {
+    pub fn parse(mut self) -> Result<Vec<Statement<'a>>, Vec<ParserError<'a>>> {
         self.current_index = 0;
 
         let mut statements = Vec::<Statement>::new();
-        let mut errors = Vec::<ParserError>::new();
+        let mut errors = Vec::<ParserError<'a>>::new();
 
         while !self.is_end() {
             let result = self.statement();
@@ -64,13 +64,14 @@ impl Parser {
             }
         }
 
-        if errors.len() == 0 {
+        if errors.is_empty() {
             return Ok(statements);
         }
 
-        return Err(errors);
+        Err(errors)
     }
 
+    #[inline]
     fn sync(&mut self) {
         self.advance();
 
@@ -94,7 +95,8 @@ impl Parser {
         }
     }
 
-    fn statement(&mut self) -> Result<Statement, ParserError> {
+    #[inline]
+    fn statement<'b>(&'b mut self) -> Result<Statement<'a>, ParserError<'a>> {
         if self.match_token_types(&[&TokenType::If]) {
             return self.if_statement();
         }
@@ -111,10 +113,11 @@ impl Parser {
             return Ok(Statement::Block(self.block()?));
         }
 
-        return self.expression_statement();
+        self.expression_statement()
     }
 
-    fn variable_declaration(&mut self) -> Result<Statement, ParserError> {
+    #[inline]
+    fn variable_declaration<'b>(&'b mut self) -> Result<Statement<'a>, ParserError<'a>> {
         let identifier = self
             .consume_token(TokenType::Identifier, "Expected identifier".to_owned())?
             .clone();
@@ -132,22 +135,25 @@ impl Parser {
 
         let _ = self.consume_token(TokenType::SemiColon, "Expected ';'".to_owned())?;
 
-        return Ok(declaration);
+        Ok(declaration)
     }
 
-    fn expression_statement(&mut self) -> Result<Statement, ParserError> {
+    #[inline]
+    fn expression_statement<'b>(&'b mut self) -> Result<Statement<'a>, ParserError<'a>> {
         let expr = self.expression()?;
 
         let _ = self.consume_token(TokenType::SemiColon, "Expected ';'".to_owned())?;
 
-        return Ok(Statement::Expression(expr));
+        Ok(Statement::Expression(expr))
     }
 
-    fn expression(&mut self) -> Result<Expression, ParserError> {
-        return self.assignment();
+    #[inline]
+    fn expression<'b>(&'b mut self) -> Result<Expression<'a>, ParserError<'a>> {
+        self.assignment()
     }
 
-    fn assignment(&mut self) -> Result<Expression, ParserError> {
+    #[inline]
+    fn assignment<'b>(&'b mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let expr = self.or()?;
 
         if self.match_token_types(&[&TokenType::Equal]) {
@@ -169,10 +175,11 @@ impl Parser {
             }
         };
 
-        return Ok(expr);
+        Ok(expr)
     }
 
-    fn or(&mut self) -> Result<Expression, ParserError> {
+    #[inline]
+    fn or<'b>(&'b mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let mut expr = self.and()?;
 
         while self.match_token_types(&[&TokenType::Or]) {
@@ -186,10 +193,11 @@ impl Parser {
             });
         }
 
-        return Ok(expr);
+        Ok(expr)
     }
 
-    fn and(&mut self) -> Result<Expression, ParserError> {
+    #[inline]
+    fn and<'b>(&'b mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let mut expr = self.equality()?;
 
         while self.match_token_types(&[&TokenType::And]) {
@@ -203,13 +211,14 @@ impl Parser {
             });
         }
 
-        return Ok(expr);
+        Ok(expr)
     }
 
-    fn equality(&mut self) -> Result<Expression, ParserError> {
+    #[inline]
+    fn equality(&mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let mut expr = self.comparison()?;
 
-        if self.check(&TokenType::Equal) {}
+        self.check(&TokenType::Equal);
 
         while self.match_token_types(&[&TokenType::DoubleEqual, &TokenType::BangEqual]) {
             let operator = self.previous().clone();
@@ -222,10 +231,11 @@ impl Parser {
             });
         }
 
-        return Ok(expr);
+        Ok(expr)
     }
 
-    fn comparison(&mut self) -> Result<Expression, ParserError> {
+    #[inline]
+    fn comparison(&mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let mut expr = self.term()?;
 
         while self.match_token_types(&[
@@ -244,10 +254,11 @@ impl Parser {
             });
         }
 
-        return Ok(expr);
+        Ok(expr)
     }
 
-    fn term(&mut self) -> Result<Expression, ParserError> {
+    #[inline]
+    fn term(&mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let mut expr = self.factor()?;
 
         while self.match_token_types(&[&TokenType::Minus, &TokenType::Plus]) {
@@ -261,10 +272,11 @@ impl Parser {
             });
         }
 
-        return Ok(expr);
+        Ok(expr)
     }
 
-    fn factor(&mut self) -> Result<Expression, ParserError> {
+    #[inline]
+    fn factor(&mut self) -> Result<Expression<'a>, ParserError<'a>> {
         let mut expr = self.unary()?;
 
         while self.match_token_types(&[&TokenType::Slash, &TokenType::Star]) {
@@ -278,10 +290,11 @@ impl Parser {
             });
         }
 
-        return Ok(expr);
+        Ok(expr)
     }
 
-    fn unary(&mut self) -> Result<Expression, ParserError> {
+    #[inline]
+    fn unary(&mut self) -> Result<Expression<'a>, ParserError<'a>> {
         if self.match_token_types(&[&TokenType::Bang, &TokenType::Minus]) {
             let operator = self.previous().clone();
 
@@ -291,10 +304,11 @@ impl Parser {
             }));
         }
 
-        return self.primary();
+        self.primary()
     }
 
-    fn primary(&mut self) -> Result<Expression, ParserError> {
+    #[inline]
+    fn primary<'b>(&'b mut self) -> Result<Expression<'a>, ParserError<'a>> {
         if self.match_token_types(&[
             &TokenType::False,
             &TokenType::True,
@@ -335,42 +349,48 @@ impl Parser {
 
         let current = self.next();
 
-        return Err(ParserError::new(
+        Err(ParserError::new(
             format!("Unexpected token '{:#?}'", current),
             current.clone(),
-        ));
+        ))
     }
 
+    #[inline]
     fn is_end(&self) -> bool {
-        return std::mem::discriminant(&self.next().token_type)
-            == std::mem::discriminant(&TokenType::Eof);
+        std::mem::discriminant(&self.next().token_type)
+            == std::mem::discriminant(&TokenType::Eof)
     }
 
-    fn next(&self) -> &Token {
-        return &self.tokens[self.current_index];
+    #[inline]
+    fn next<'b>(&'b self) -> &'b Token<'a> {
+        &self.tokens[self.current_index]
     }
 
-    fn previous(&self) -> &Token {
-        return &self.tokens[self.current_index - 1];
+    #[inline]
+    fn previous<'b>(&'b self) -> &'b Token<'a> {
+        &self.tokens[self.current_index - 1]
     }
 
+    #[inline]
     fn check(&self, token_type: &TokenType) -> bool {
         if self.is_end() {
             return false;
         }
 
-        return std::mem::discriminant(token_type)
-            == std::mem::discriminant(&self.next().token_type);
+        std::mem::discriminant(token_type)
+            == std::mem::discriminant(&self.next().token_type)
     }
 
-    fn advance(&mut self) -> &Token {
+    #[inline]
+    fn advance<'b>(&'b mut self) -> &'b Token<'a> {
         if !self.is_end() {
             self.current_index += 1;
         }
 
-        return self.previous();
+        self.previous()
     }
 
+    #[inline]
     fn match_token_types(&mut self, types: &[&TokenType]) -> bool {
         for token_type in types {
             if self.check(token_type) {
@@ -379,14 +399,15 @@ impl Parser {
             }
         }
 
-        return false;
+        false
     }
 
-    fn consume_token(
-        &mut self,
+    #[inline]
+    fn consume_token<'b>(
+        &'b mut self,
         token_type: TokenType,
         error_message: String,
-    ) -> Result<&Token, ParserError> {
+    ) -> Result<&'b Token<'a>, ParserError<'a>> {
         self.advance();
         let previous = self.previous();
 
@@ -394,10 +415,11 @@ impl Parser {
             return Ok(previous);
         }
 
-        return Err(ParserError::new(error_message, previous.clone()));
+        Err(ParserError::new(error_message, previous.clone()))
     }
 
-    fn block(&mut self) -> Result<Vec<Statement>, ParserError> {
+    #[inline]
+    fn block<'b>(&'b mut self) -> Result<Vec<Statement<'a>>, ParserError<'a>> {
         let mut statements = Vec::<Statement>::new();
 
         while !self.check(&TokenType::RightBrace) && !self.is_end() {
@@ -406,10 +428,11 @@ impl Parser {
 
         let _ = self.consume_token(TokenType::RightBrace, "Expected '}' after block".to_owned())?;
 
-        return Ok(statements);
+        Ok(statements)
     }
 
-    fn if_statement(&mut self) -> Result<Statement, ParserError> {
+    #[inline]
+    fn if_statement<'b>(&'b mut self) -> Result<Statement<'a>, ParserError<'a>> {
         let condition = self.expression()?;
 
         let _ = self.consume_token(
@@ -430,14 +453,15 @@ impl Parser {
             None
         };
 
-        return Ok(Statement::If(IfStatement {
+        Ok(Statement::If(IfStatement {
             condition,
             statements,
             else_statements,
-        }));
+        }))
     }
 
-    fn while_statement(&mut self) -> Result<Statement, ParserError> {
+    #[inline]
+    fn while_statement<'b>(&'b mut self) -> Result<Statement<'a>, ParserError<'a>> {
         let condition = self.expression()?;
 
         let _ = self.consume_token(
@@ -447,9 +471,9 @@ impl Parser {
 
         let statements = self.block()?;
 
-        return Ok(Statement::While(WhileStatement {
+        Ok(Statement::While(WhileStatement {
             condition,
             statements,
-        }));
+        }))
     }
 }

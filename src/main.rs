@@ -3,10 +3,13 @@ mod interpreter;
 mod matcha;
 mod parser;
 mod scanner;
+mod source;
 mod statement;
+mod tests;
 mod token;
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io;
@@ -15,12 +18,17 @@ use std::println;
 use std::rc::Rc;
 
 use environment::Environment;
+use matcha::Literal;
+use matcha::NumberLiteral;
+use matcha::Value;
+use source::Source;
 
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
 
-struct Options {
+#[cfg_attr(test, derive(Default))]
+pub struct Options {
     pub ast: bool,
     pub lexer_out: bool,
 }
@@ -44,7 +52,7 @@ fn main() {
             "--ast" => {
                 options.ast = true;
             }
-            "--lexer_out" => {
+            "--lexer-out" => {
                 options.lexer_out = true;
             }
             _ => {
@@ -53,7 +61,7 @@ fn main() {
         }
     }
 
-    if files.len() > 0 {
+    if !files.is_empty() {
         for file in files {
             run_file(&options, &file);
         }
@@ -73,26 +81,105 @@ fn run_file(options: &Options, path: &str) {
     }
 }
 
-fn repl(options: &Options) {
-    let mut line = String::new();
-    println!("Matcha 🍵 {}", env!("CARGO_PKG_VERSION"));
+#[derive(Clone)]
+pub enum OwnedValue {
+    Empty,
+    Optional(Option<OwnedLiteral>),
+    Literal(OwnedLiteral),
+}
 
-    let environment = Rc::new(RefCell::new(Environment::new()));
+impl<'a> From<&'a OwnedValue> for Value<'a> {
+    fn from(value: &'a OwnedValue) -> Value<'a> {
+        match value {
+            OwnedValue::Empty => Value::Empty,
+            OwnedValue::Literal(l) => Value::Literal(match l {
+                OwnedLiteral::Boolean(v) => Literal::Boolean(*v),
+                OwnedLiteral::Number(n) => Literal::Number(n.clone()),
+                OwnedLiteral::String(s) => Literal::String(s),
+            }),
+            OwnedValue::Optional(o) => Value::Optional(match o {
+                None => None,
+                Some(OwnedLiteral::Boolean(v)) => Some(Literal::Boolean(*v)),
+                Some(OwnedLiteral::Number(n)) => Some(Literal::Number(n.clone())),
+                Some(OwnedLiteral::String(s)) => Some(Literal::String(s)),
+            }),
+        }
+    }
+}
+
+impl From<&Value<'_>> for OwnedValue {
+    fn from(value: &Value<'_>) -> OwnedValue {
+        match value {
+            Value::Empty => OwnedValue::Empty,
+            Value::Literal(l) => OwnedValue::Literal(match l {
+                Literal::Boolean(v) => OwnedLiteral::Boolean(*v),
+                Literal::Number(n) => OwnedLiteral::Number(n.clone()),
+                Literal::String(s) => OwnedLiteral::String(s.to_string()),
+            }),
+            Value::Optional(o) => OwnedValue::Optional(match o {
+                None => None,
+                Some(Literal::Boolean(v)) => Some(OwnedLiteral::Boolean(*v)),
+                Some(Literal::Number(n)) => Some(OwnedLiteral::Number(n.clone())),
+                Some(Literal::String(s)) => Some(OwnedLiteral::String(s.to_string())),
+            }),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum OwnedLiteral {
+    String(String),
+    Number(NumberLiteral),
+    Boolean(bool),
+}
+
+fn repl(options: &Options) {
+    println!("Matcha 🍵 {}", env!("CARGO_PKG_VERSION"));
+    let mut line = String::new();
+    let mut prev_environment = HashMap::<String, OwnedValue>::new();
 
     loop {
         print!(">>> ");
         io::stdout().flush().unwrap();
         io::stdin().read_line(&mut line).unwrap();
-        if line.len() > 0 {
+
+        if !line.is_empty() {
+            let _env = prev_environment.clone();
+
+            let environment = Environment {
+                values: _env
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.into()))
+                    .collect(),
+                parent: None,
+            };
+
+            let environment = Rc::new(RefCell::new(environment));
+
             run(options, &line, Rc::clone(&environment));
+
+            prev_environment = environment
+                .borrow()
+                .values
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.into()))
+                .collect();
         }
 
-        line.clear();
+        line.clear()
     }
 }
 
-fn run(options: &Options, program: &str, environment: Rc<RefCell<Environment>>) -> u8 {
-    let tokens_result = Scanner::scan(program);
+pub fn run<'a>(
+    options: &Options,
+    program: &'a str,
+    environment: Rc<RefCell<Environment<'a>>>,
+) -> u8 {
+    let mut scanner = Scanner {
+        source: Source::new(program),
+    };
+
+    let tokens_result = scanner.scan();
 
     match tokens_result {
         Ok(tokens) => {
@@ -100,7 +187,7 @@ fn run(options: &Options, program: &str, environment: Rc<RefCell<Environment>>) 
                 println!("{:#?}", tokens);
             }
 
-            let mut parser = Parser::new(tokens);
+            let parser = Parser::new(tokens);
             let parser_result = parser.parse();
 
             match parser_result {
@@ -114,23 +201,27 @@ fn run(options: &Options, program: &str, environment: Rc<RefCell<Environment>>) 
                     let interpreter_result = Interpreter::interpret(environment, &statements);
 
                     match interpreter_result {
-                        Ok(result) => println!("{}", result),
-                        Err(e) => eprintln!("{:#?}", e),
+                        Ok(result) => {
+                            println!("{}", result);
+                            0
+                        }
+                        Err(e) => {
+                            eprintln!("{:#?}", e);
+                            1
+                        }
                     }
                 }
                 Err(errors) => {
                     for error in errors {
                         eprintln!("{}", error);
-                        return 1;
                     }
+                    1
                 }
             }
         }
         Err(e) => {
             eprintln!("{}", e);
-            return 1;
+            1
         }
     }
-
-    return 0;
 }

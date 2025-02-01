@@ -26,26 +26,26 @@ pub static KEYWORDS: LazyLock<HashMap<&str, TokenType>> = LazyLock::new(|| {
 });
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Literal {
-    String(String),
+pub enum Literal<'a> {
+    String(&'a str),
     Number(NumberLiteral),
     Boolean(bool),
 }
 
-impl Literal {
+impl Literal<'_> {
     pub fn get_type(&self) -> &str {
-        return match self {
+        match self {
             Literal::String(_) => "String",
             Literal::Number(number) => match number {
                 NumberLiteral::Float(_) => "Float",
                 NumberLiteral::Integer(_) => "Integer",
             },
             Literal::Boolean(_) => "Boolean",
-        };
+        }
     }
 }
 
-impl Display for Literal {
+impl Display for Literal<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Literal::String(s) => write!(f, "{}", s),
@@ -156,7 +156,7 @@ impl Div for NumberLiteral {
 
 impl PartialEq for NumberLiteral {
     fn eq(&self, other: &Self) -> bool {
-        return match (self, other) {
+        match (self, other) {
             (NumberLiteral::Integer(left), NumberLiteral::Integer(right)) => left == right,
             (NumberLiteral::Float(left), NumberLiteral::Integer(right)) => {
                 *left == f64::from(*right)
@@ -165,7 +165,7 @@ impl PartialEq for NumberLiteral {
                 f64::from(*left) == *right
             }
             (NumberLiteral::Float(left), NumberLiteral::Float(right)) => left == right,
-        };
+        }
     }
 }
 
@@ -173,8 +173,8 @@ impl Eq for NumberLiteral {}
 
 impl PartialOrd for NumberLiteral {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        return match (self, other) {
-            (NumberLiteral::Integer(left), NumberLiteral::Integer(right)) => Some(left.cmp(&right)),
+        match (self, other) {
+            (NumberLiteral::Integer(left), NumberLiteral::Integer(right)) => Some(left.cmp(right)),
             (NumberLiteral::Float(left), NumberLiteral::Integer(right)) => {
                 Some(left.total_cmp(&f64::from(*right)))
             }
@@ -182,26 +182,20 @@ impl PartialOrd for NumberLiteral {
                 Some(f64::from(*left).total_cmp(right))
             }
             (NumberLiteral::Float(left), NumberLiteral::Float(right)) => {
-                Some(left.total_cmp(&right))
+                Some(left.total_cmp(right))
             }
-        };
-    }
-}
-
-impl Ord for NumberLiteral {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        return self.partial_cmp(other).unwrap();
+        }
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum Value {
+pub enum Value<'a> {
     Empty,
-    Optional(Option<Literal>),
-    Literal(Literal),
+    Optional(Option<Literal<'a>>),
+    Literal(Literal<'a>),
 }
 
-impl Display for Value {
+impl Display for Value<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Empty => write!(f, "<empty>"),

@@ -1,23 +1,24 @@
 use crate::token::Token;
 
 fn generate_left_pad(depth: usize) -> String {
-    return if depth > 0 {
+    if depth > 0 {
         "│  ".repeat(depth - 1) + "├─ "
     } else {
         "".to_owned()
-    };
+    }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub enum Statement {
-    Expression(Expression),
-    VariableDeclaration(VariableDeclaration),
-    Block(Vec<Statement>),
-    If(IfStatement),
-    While(WhileStatement),
+pub enum Statement<'a> {
+    Expression(Expression<'a>),
+    VariableDeclaration(VariableDeclaration<'a>),
+    Block(Vec<Statement<'a>>),
+    If(IfStatement<'a>),
+    While(WhileStatement<'a>),
 }
 
-impl Statement {
+impl Statement<'_> {
     pub fn format(&self, depth: usize) -> String {
         let result = match self {
             Statement::Expression(ex) => ex.format(depth),
@@ -55,14 +56,14 @@ impl Statement {
             }
         };
 
-        return format!("{}", result);
+        result.to_string()
     }
 
     fn format_block(block: &Vec<Statement>, depth: usize) -> String {
         let left_pad = generate_left_pad(depth);
         let mut output: String = block
             .iter()
-            .map(|statement| format!("{}\n", statement.format(depth + 1)))
+            .map(|statement| statement.format(depth + 1))
             .collect();
 
         // Remove trailing '\n' from the last iteration
@@ -73,20 +74,21 @@ impl Statement {
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub enum Expression {
-    Binary(BinaryExpression),
-    Unary(UnaryExpression),
-    Literal(LiteralExpression),
-    Grouping(GroupingExpression),
-    Variable(VariableExpression),
-    Assignment(AssignmentExpression),
-    Logical(BinaryExpression),
+pub enum Expression<'a> {
+    Binary(BinaryExpression<'a>),
+    Unary(UnaryExpression<'a>),
+    Literal(LiteralExpression<'a>),
+    Grouping(GroupingExpression<'a>),
+    Variable(VariableExpression<'a>),
+    Assignment(AssignmentExpression<'a>),
+    Logical(BinaryExpression<'a>),
 }
 
-impl Expression {
+impl Expression<'_> {
     fn format(&self, depth: usize) -> String {
-        return match self {
+        match self {
             Expression::Binary(ex) => ex.format(depth),
             Expression::Unary(ex) => ex.format(depth),
             Expression::Literal(ex) => ex.format(depth),
@@ -94,96 +96,102 @@ impl Expression {
             Expression::Variable(ex) => ex.format(depth),
             Expression::Assignment(ex) => ex.format(depth),
             Expression::Logical(ex) => ex.format(depth),
-        };
+        }
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub struct BinaryExpression {
-    pub left: Box<Expression>,
-    pub operator: Token,
-    pub right: Box<Expression>,
+pub struct BinaryExpression<'a> {
+    pub left: Box<Expression<'a>>,
+    pub operator: Token<'a>,
+    pub right: Box<Expression<'a>>,
 }
 
-impl BinaryExpression {
+impl BinaryExpression<'_> {
     fn format(&self, depth: usize) -> String {
         let left_pad = generate_left_pad(depth);
 
-        return format!(
+        format!(
             "{0}{1}\n{2}\n{3}",
             left_pad,
             self.operator.lexeme,
             self.left.format(depth + 1),
             self.right.format(depth + 1)
-        );
+        )
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub struct UnaryExpression {
-    pub left: Box<Expression>,
-    pub operator: Token,
+pub struct UnaryExpression<'a> {
+    pub left: Box<Expression<'a>>,
+    pub operator: Token<'a>,
 }
 
-impl UnaryExpression {
+impl UnaryExpression<'_> {
     pub fn format(&self, depth: usize) -> String {
         let left_pad = generate_left_pad(depth);
 
-        return format!(
+        format!(
             "{}{}\n{}",
             left_pad,
             self.operator.lexeme,
             self.left.format(depth + 1),
-        );
+        )
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub struct LiteralExpression {
-    pub value: Token,
+pub struct LiteralExpression<'a> {
+    pub value: Token<'a>,
 }
 
-impl LiteralExpression {
+impl LiteralExpression<'_> {
     fn format(&self, depth: usize) -> String {
         let left_pad = generate_left_pad(depth);
 
-        return format!("{}{}", left_pad, self.value.lexeme);
+        format!("{}{}", left_pad, self.value.lexeme)
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub struct GroupingExpression {
-    pub expression: Box<Expression>,
+pub struct GroupingExpression<'a> {
+    pub expression: Box<Expression<'a>>,
 }
 
-impl GroupingExpression {
+impl GroupingExpression<'_> {
     fn format(&self, depth: usize) -> String {
         let left_pad = generate_left_pad(depth);
 
-        return format!("{0}GROUP\n{1}", left_pad, self.expression.format(depth + 1));
+        format!("{0}GROUP\n{1}", left_pad, self.expression.format(depth + 1))
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub struct VariableExpression {
-    pub value: Token,
+pub struct VariableExpression<'a> {
+    pub value: Token<'a>,
 }
 
-impl VariableExpression {
+impl VariableExpression<'_> {
     pub fn format(&self, depth: usize) -> String {
         let left_pad = generate_left_pad(depth);
 
-        return format!("{}VAR {}", left_pad, self.value.lexeme);
+        format!("{}VAR {}", left_pad, self.value.lexeme)
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub struct VariableDeclaration {
-    pub identifier: Token,
-    pub initializer: Option<Expression>,
+pub struct VariableDeclaration<'a> {
+    pub identifier: Token<'a>,
+    pub initializer: Option<Expression<'a>>,
 }
 
-impl VariableDeclaration {
+impl VariableDeclaration<'_> {
     pub fn format(&self, depth: usize) -> String {
         let left_pad = generate_left_pad(depth);
         let children_left_pad = generate_left_pad(depth + 1);
@@ -193,43 +201,46 @@ impl VariableDeclaration {
             None => format!("{}nil", children_left_pad),
         };
 
-        return format!(
+        format!(
             "{0}VAR_DECL\n{1}{2}\n{3}",
             left_pad, children_left_pad, self.identifier.lexeme, initializer_value
-        );
+        )
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub struct AssignmentExpression {
-    pub name: Token,
-    pub value: Box<Expression>,
+pub struct AssignmentExpression<'a> {
+    pub name: Token<'a>,
+    pub value: Box<Expression<'a>>,
 }
 
-impl AssignmentExpression {
+impl AssignmentExpression<'_> {
     pub fn format(&self, depth: usize) -> String {
         let left_pad = generate_left_pad(depth);
         let children_left_pad = generate_left_pad(depth + 1);
 
-        return format!(
+        format!(
             "{0}VAR_ASSIGN\n{1}{2}\n{3}",
             left_pad,
             children_left_pad,
             &self.name.lexeme,
             self.value.format(depth + 1)
-        );
+        )
     }
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub struct IfStatement {
-    pub condition: Expression,
-    pub statements: Vec<Statement>,
-    pub else_statements: Option<Vec<Statement>>,
+pub struct IfStatement<'a> {
+    pub condition: Expression<'a>,
+    pub statements: Vec<Statement<'a>>,
+    pub else_statements: Option<Vec<Statement<'a>>>,
 }
 
+#[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Clone)]
-pub struct WhileStatement {
-    pub condition: Expression,
-    pub statements: Vec<Statement>,
+pub struct WhileStatement<'a> {
+    pub condition: Expression<'a>,
+    pub statements: Vec<Statement<'a>>,
 }
